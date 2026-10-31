@@ -107,7 +107,7 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--gold);outl
 <button class="btn alt" id="novo">Novo cliente</button>
 </section>
 
-<section id="sAg"><h2>Agenda</h2><div id="agList"></div>
+<section id="sAg"><h2>Agenda</h2><p class="note" id="syncNote"></p><div id="agList"></div>
 <p class="note" id="bkNote">Backup: copie e guarde no WhatsApp ou Notas. Se perder os dados, cole para restaurar.</p>
 <button class="btn alt" id="bkCopy">Copiar backup da agenda</button>
 <button class="btn alt" id="bkRest">Restaurar backup</button>
@@ -121,6 +121,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--gold);outl
 <label for="cc">Código do país (EUA = 1)</label><input id="cc" inputmode="numeric">
 <label for="cur">Moeda</label><input id="cur">
 <label for="depPct">Sinal para confirmar (%)</label><input id="depPct" inputmode="decimal">
+<h2 style="margin-top:24px">Google Agenda</h2>
+<p class="note">Com o link do script e a chave secreta, a agenda e os preços ficam iguais em todos os aparelhos e cada agendamento entra sozinho no Google Agenda. Deixe em branco para usar só neste aparelho.</p>
+<label for="gUrl">Link do script (termina em /exec)</label><input id="gUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false">
+<label for="gKey">Chave secreta</label><input id="gKey" autocomplete="off" autocapitalize="off" spellcheck="false">
+<p class="note" id="gNote"></p>
 <button class="btn" id="saveSet">Salvar</button>
 <button class="btn alt" data-close>Fechar</button>
 </section>
@@ -161,6 +166,35 @@ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 cfg=load("kf_cfg_v3",D);appts=load("kf_appts",[]);
 if(!cfg.p||cfg.p.length!==4)cfg=D;
 cfg.dep=cfg.dep||15;
+var G=load("kf_google",{url:"",key:""}),Q=load("kf_q",[]),busy=[],syncing=false;
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+appts.forEach(function(a){if(!a.id)a.id=uid()});
+
+// Google Agenda + planilha (via Google Apps Script). Alterações entram numa fila
+// e são reenviadas quando houver conexão.
+function gOn(){return!!(G.url&&G.key)}
+function syncMsg(t){$("syncNote").textContent=t;$("gNote").textContent=t}
+function gCall(p){return fetch(G.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({key:G.key},p))})
+  .then(function(r){return r.json()}).then(function(d){if(!d||!d.ok)throw new Error(d&&d.erro||"erro");return d})}
+function gQueue(op){if(!gOn())return;Q.push(op);save("kf_q",Q);gSync()}
+function gSync(){
+  if(!gOn()||syncing)return;
+  syncing=true;syncMsg("Sincronizando com o Google…");var ok=false;
+  function next(){if(!Q.length)return Promise.resolve();return gCall(Q[0]).then(function(){Q.shift();save("kf_q",Q);return next()})}
+  next().then(function(){return gCall({action:"list"})}).then(function(d){
+    appts=d.appts||[];busy=d.busy||[];
+    Q.forEach(function(o){
+      if(o.action==="add"&&!appts.some(function(a){return a.id===o.appt.id}))appts.push(o.appt);
+      if(o.action==="del")appts=appts.filter(function(a){return a.id!==o.id});
+      if(o.action==="status")appts.forEach(function(a){if(a.id===o.id)a.status=o.status})});
+    if(d.cfg&&d.cfg.p&&d.cfg.p.length===4&&!Q.some(function(o){return o.action==="cfg"})){cfg=d.cfg;cfg.dep=cfg.dep||15;save("kf_cfg_v3",cfg)}
+    save("kf_appts",appts);syncMsg("✓ Sincronizado com o Google Agenda");ok=true;
+  }).catch(function(e){
+    syncMsg(e.message==="chave"?"Chave secreta errada. Confira em Preços → Google Agenda.":"Sem conexão com o Google. "+Q.length+" alteração(ões) aguardando envio.");
+  }).then(function(){syncing=false;refresh();if(ok&&Q.length)gSync()})}
+function refresh(){
+  if($("sAg").classList.contains("show"))renderAg();
+  if($("s4").classList.contains("show")&&st.data)buildHours()}
 
 function money(v){return cfg.cur+Number(v).toFixed(2)}
 function price(c){c=c||st;return cfg.p[c.cat][c.serv==="full"?0:1]}
@@ -216,7 +250,7 @@ document.querySelectorAll(".opt").forEach(function(o){o.onclick=function(){
   st.serv=o.dataset.s;
   document.querySelectorAll(".opt").forEach(function(x){x.classList.toggle("sel",x===o)});
   $("n3").disabled=false;$("addCar").disabled=false;if(st.curAdded)st.cars[st.cars.length-1].serv=st.serv}});
-$("n3").onclick=function(){addCar();buildDays();st.data=null;st.hora=null;$("hours").innerHTML="";$("n4").disabled=true;st.step=4;show(4)};
+$("n3").onclick=function(){addCar();buildDays();st.data=null;st.hora=null;$("hours").innerHTML="";$("n4").disabled=true;st.step=4;show(4);gSync()};
 
 // Etapa 4
 var DS=["dom","seg","ter","qua","qui","sex","sáb"],HS=["8:00 AM","9:00 AM","10:00 AM","11:00 AM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM"];
@@ -229,9 +263,17 @@ function buildDays(){var h="",t=new Date();
   $("days").querySelectorAll(".chip").forEach(function(c){c.onclick=function(){
     st.data=c.dataset.d;st.hora=null;$("n4").disabled=true;
     $("days").querySelectorAll(".chip").forEach(function(x){x.classList.toggle("sel",x===c)});buildHours()}})}
+// Cada carro ocupa 3 horas. Um horário fica livre se não encosta em outro
+// agendamento nem em compromisso do Google Agenda.
+function mins(h){var m=String(h).match(/(\d+):(\d+) (AM|PM)/);return m?((+m[1]%12)+(m[3]==="PM"?12:0))*60+(+m[2]):0}
+function livre(d,h,n){var s=mins(h),e=s+180*n;
+  return!appts.some(function(a){var as=mins(a.hora);return a.data===d&&s<as+180*(a.n||1)&&as<e})&&
+    !busy.some(function(b){return b.data===d&&s<b.fim&&b.ini<e})}
 function buildHours(){
-  var busy=appts.filter(function(a){return a.data===st.data}).map(function(a){return a.hora});
-  $("hours").innerHTML=HS.map(function(h){return'<button class="chip" data-h="'+h+'"'+(busy.indexOf(h)>-1?" disabled":"")+">"+h+"</button>"}).join("");
+  var n=st.cars?st.cars.length:1;
+  if(st.hora&&!livre(st.data,st.hora,n))st.hora=null;
+  $("n4").disabled=!st.hora;
+  $("hours").innerHTML=HS.map(function(h){var ok=livre(st.data,h,n);return'<button class="chip'+(h===st.hora?" sel":"")+'" data-h="'+h+'"'+(ok?"":" disabled")+">"+h+"</button>"}).join("");
   $("hours").querySelectorAll(".chip").forEach(function(c){c.onclick=function(){
     st.hora=c.dataset.h;$("n4").disabled=false;
     $("hours").querySelectorAll(".chip").forEach(function(x){x.classList.toggle("sel",x===c)})}})}
@@ -247,7 +289,8 @@ var INC={full:"O serviço *Full Detail* inclui:\n\n✅ Shampoo completo nos banc
 $("send").onclick=function(){
   var used=[];st.cars.forEach(function(c){if(used.indexOf(c.serv)<0)used.push(c.serv)});
   var msg="Olá, "+st.nome+"! 🚗✨ Aqui é da *"+cfg.names+"*.\n\nSegue o resumo do seu agendamento:\n\n"+st.cars.map(function(c,i){return"🚗 *Carro "+(i+1)+":* "+c.marca+" "+c.modelo+"\n🧼 *Serviço:* "+svcName(c)+"\n💵 *Valor:* "+money(price(c))}).join("\n\n")+"\n\n"+used.map(function(k){return INC[k]}).join("\n\n")+"\n\n📅 *Data:* "+br(st.data)+"\n⏰ *Horário:* "+st.hora+"\n📍 *Local:* "+st.end+"\n\n💰 *Total:* "+money(total())+"\n\n⚠️ Para confirmar o agendamento, peço *"+cfg.dep+"%* do valor ("+money(dep())+").\n\nPara confirmar, responda *SIM*. Se não quiser essa data, responda *NÃO* que o horário será liberado. Obrigado!";
-  if(!st.saved){appts.push({data:st.data,hora:st.hora,nome:st.nome,carro:st.cars.map(function(c){return c.marca+" "+c.modelo}).join(" + "),serv:st.cars.map(function(c){return svcName(c)}).join(" + "),valor:total(),tel:st.tel,end:st.end,dep:dep(),n:st.cars.length,status:"pendente"});save("kf_appts",appts);st.saved=true}
+  if(!st.saved){var a={id:uid(),data:st.data,hora:st.hora,nome:st.nome,carro:st.cars.map(function(c){return c.marca+" "+c.modelo}).join(" + "),serv:st.cars.map(function(c){return svcName(c)}).join(" + "),valor:total(),tel:st.tel,end:st.end,dep:dep(),n:st.cars.length,status:"pendente"};
+    appts.push(a);save("kf_appts",appts);st.saved=true;gQueue({action:"add",appt:a})}
   var num=st.tel.length>10?st.tel:cfg.cc+st.tel;
   var url="https://wa.me/"+num+"?text="+encodeURIComponent(msg);
   $("waLink").href=url;$("msgBox").value=msg;$("fb").classList.remove("hide");
@@ -266,25 +309,35 @@ function gcal(a){
   var d=a.data.replace(/-/g,""),b=t24(a.hora),H=Math.min(+b.slice(0,2)+(a.n||1)*3,23),e=("0"+H).slice(-2)+b.slice(2,4)+"00";
   var det="Cliente: "+a.nome+"\nTelefone: "+a.tel+"\nCarro(s): "+a.carro+"\nServiço(s): "+a.serv+"\nTotal: "+money(a.valor)+(a.dep?"\nSinal: "+money(a.dep):"");
   return"https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent("Detail – "+a.nome+" ("+a.carro+")")+"&dates="+d+"T"+b+"/"+d+"T"+e+"&details="+encodeURIComponent(det)+"&location="+encodeURIComponent(a.end||"")}
-$("bAg").onclick=function(){
+$("bAg").onclick=function(){renderAg();show("sAg");if(!gOn())$("syncNote").textContent="";gSync()};
+function renderAg(){
   appts.sort(function(a,b){return(a.data+("0"+HS.indexOf(a.hora)).slice(-2))<(b.data+("0"+HS.indexOf(b.hora)).slice(-2))?-1:1});
   $("agList").innerHTML=appts.length?appts.map(function(a,i){var c=a.status==="confirmado";
-    return'<div class="row" style="flex-direction:column"><div><b>'+br(a.data)+" "+esc(a.hora)+"</b> · "+esc(a.nome)+' <span class="badge'+(c?" ok":"")+'">'+(c?"Confirmado":"Pendente")+'</span><br><span class="note">'+esc(a.carro)+" · "+esc(a.serv)+" · "+money(a.valor)+'</span><br><span class="note">📍 '+esc(a.end||"")+" · 📞 "+esc(a.tel)+'</span></div><div class="acts">'+(c?'<a class="chip go" target="_blank" rel="noopener" href="'+gcal(a)+'">Google Agenda</a>':'<button class="chip go" data-c="'+i+'">Confirmar</button>')+'<button class="chip no" data-x="'+i+'">'+(c?"Cancelar":"Cliente não quis")+"</button></div></div>"}).join(""):'<p class="note">Nenhum agendamento ainda.</p>';
-  $("agList").querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){appts[+b.dataset.c].status="confirmado";save("kf_appts",appts);$("bAg").onclick()}});
+    return'<div class="row" style="flex-direction:column"><div><b>'+br(a.data)+" "+esc(a.hora)+"</b> · "+esc(a.nome)+' <span class="badge'+(c?" ok":"")+'">'+(c?"Confirmado":"Pendente")+'</span><br><span class="note">'+esc(a.carro)+" · "+esc(a.serv)+" · "+money(a.valor)+'</span><br><span class="note">📍 '+esc(a.end||"")+" · 📞 "+esc(a.tel)+'</span></div><div class="acts">'+(c?(gOn()?"":'<a class="chip go" target="_blank" rel="noopener" href="'+gcal(a)+'">Google Agenda</a>'):'<button class="chip go" data-c="'+i+'">Confirmar</button>')+'<button class="chip no" data-x="'+i+'">'+(c?"Cancelar":"Cliente não quis")+"</button></div></div>"}).join(""):'<p class="note">Nenhum agendamento ainda.</p>';
+  $("agList").querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){var a=appts[+b.dataset.c];a.status="confirmado";save("kf_appts",appts);renderAg();gQueue({action:"status",id:a.id,status:"confirmado"})}});
   $("agList").querySelectorAll("[data-x]").forEach(function(b){var t=b.textContent;b.onclick=function(){
-    if(b.dataset.arm){appts.splice(+b.dataset.x,1);save("kf_appts",appts);$("bAg").onclick()}
-    else{b.dataset.arm="1";b.textContent="Toque de novo: liberar horário";setTimeout(function(){delete b.dataset.arm;b.textContent=t},4000)}}});
-  show("sAg")};
+    if(b.dataset.arm){var id=appts[+b.dataset.x].id;appts.splice(+b.dataset.x,1);save("kf_appts",appts);renderAg();gQueue({action:"del",id:id})}
+    else{b.dataset.arm="1";b.textContent="Toque de novo: liberar horário";setTimeout(function(){delete b.dataset.arm;b.textContent=t},4000)}}})}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 
 // Preços
 $("bSet").onclick=function(){
   $("setBox").innerHTML=CATS.map(function(c,i){return"<label>"+c+'</label><div class="grid"><input data-p="'+i+'0" inputmode="decimal" value="'+cfg.p[i][0]+'" aria-label="Full Detail '+c+'"><input data-p="'+i+'1" inputmode="decimal" value="'+cfg.p[i][1]+'" aria-label="Interior Detail '+c+'"></div>'}).join("")+'<p class="note">Esquerda: Full Detail · Direita: Interior Detail</p>';
-  $("cc").value=cfg.cc;$("cur").value=cfg.cur;$("depPct").value=cfg.dep;show("sSet")};
+  $("cc").value=cfg.cc;$("cur").value=cfg.cur;$("depPct").value=cfg.dep;
+  $("gUrl").value=G.url;$("gKey").value=G.key;$("gNote").textContent="";show("sSet")};
 $("saveSet").onclick=function(){
+  var antes=JSON.stringify(cfg);
   document.querySelectorAll("[data-p]").forEach(function(i){var k=i.dataset.p;cfg.p[+k[0]][+k[1]]=parseFloat(String(i.value).replace(",","."))||0});
   cfg.cc=$("cc").value.replace(/\D/g,"")||"1";cfg.cur=$("cur").value||"$";
-  cfg.dep=parseFloat(String($("depPct").value).replace(",","."))||15;save("kf_cfg_v3",cfg);show(st.step||1)};
+  cfg.dep=parseFloat(String($("depPct").value).replace(",","."))||15;save("kf_cfg_v3",cfg);
+  var url=$("gUrl").value.trim(),key=$("gKey").value.trim(),novo=url!==G.url||key!==G.key;
+  G={url:url,key:key};save("kf_google",G);
+  if(!gOn()){busy=[];show(st.step||1);return}
+  // Ao conectar, envia os agendamentos deste aparelho (o script ignora repetidos).
+  if(novo)appts.forEach(function(a){Q.push({action:"add",appt:a})});
+  if(JSON.stringify(cfg)!==antes)Q.push({action:"cfg",cfg:cfg});
+  save("kf_q",Q);gSync();
+  if(!novo)show(st.step||1)};
 $("addCar").onclick=function(){addCar();st.curAdded=false;mk.value="";mk.onchange();$("outroNome").value="";$("n2").disabled=true;st.step=2;show(2)};
 $("bkCopy").onclick=function(){var t=JSON.stringify({appts:appts,cfg:cfg}),b=$("bkBox");b.classList.remove("hide");b.dataset.mode="c";b.value=t;b.select();
   function ok(){$("bkNote").textContent="Backup copiado. Cole em Notas ou mande para você mesmo."}
@@ -292,10 +345,12 @@ $("bkCopy").onclick=function(){var t=JSON.stringify({appts:appts,cfg:cfg}),b=$("
 $("bkRest").onclick=function(){var b=$("bkBox");
   if(b.classList.contains("hide")||b.dataset.mode!=="r"){b.classList.remove("hide");b.value="";b.dataset.mode="r";$("bkNote").textContent="Cole o backup na caixa e toque em Restaurar de novo.";return}
   try{var d=JSON.parse(b.value);if(!Array.isArray(d.appts))throw 0;appts=d.appts;if(d.cfg&&d.cfg.p&&d.cfg.p.length===4){cfg=d.cfg;cfg.dep=cfg.dep||15}
+    appts.forEach(function(a){if(!a.id)a.id=uid();Q.push({action:"add",appt:a})});if(gOn())save("kf_q",Q);else Q=[];
     save("kf_appts",appts);save("kf_cfg_v3",cfg);b.value="";b.classList.add("hide");b.dataset.mode="";$("bAg").onclick();$("bkNote").textContent="Backup restaurado."}
   catch(e){$("bkNote").textContent="Backup inválido. Cole o texto completo que foi copiado."}};
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
 show(1);
+gSync();
 </script>
 </body>
 </html>
