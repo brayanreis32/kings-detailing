@@ -19,7 +19,7 @@ const NOME_PLANILHA = 'Kings of Detailing – Agenda';
 const FUSO = 'America/New_York';
 const HORAS_POR_CARRO = 3;
 const DIAS_A_FRENTE = 15;
-const COLS = ['id', 'data', 'hora', 'nome', 'tel', 'end', 'carro', 'serv', 'valor', 'dep', 'n', 'status', 'evento', 'criado'];
+const COLS = ['id', 'data', 'hora', 'nome', 'tel', 'end', 'carro', 'serv', 'valor', 'dep', 'n', 'status', 'evento', 'criado', 'lat', 'lng', 'cidade'];
 
 function doGet() {
   return saida({ ok: true, msg: 'Script da Kings of Detailing funcionando.' });
@@ -35,6 +35,7 @@ function doPost(e) {
   try {
     switch (p.action) {
       case 'list': return saida({ ok: true, appts: listar(), busy: ocupados(), cfg: lerCfg() });
+      case 'geo': return saida({ ok: true, geo: geo(p.end) });
       case 'add': adicionar(p.appt); break;
       case 'status': mudarStatus(p.id, p.status); break;
       case 'del': remover(p.id); break;
@@ -58,7 +59,11 @@ function saida(o) {
 function planilha() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('planilha');
-  if (id) return SpreadsheetApp.openById(id).getSheets()[0];
+  if (id) {
+    const s = SpreadsheetApp.openById(id).getSheets()[0];
+    if (s.getLastColumn() < COLS.length) s.getRange(1, 1, 1, COLS.length).setValues([COLS]).setFontWeight('bold');
+    return s;
+  }
   const ss = SpreadsheetApp.create(NOME_PLANILHA);
   const sh = ss.getSheets()[0];
   sh.getRange(1, 1, 1, COLS.length).setValues([COLS]).setFontWeight('bold');
@@ -80,12 +85,24 @@ function acharLinha(rows, id) {
 }
 
 function listar() {
-  return linhas().rows.map(function (r) {
+  const t = linhas();
+  const iLat = COLS.indexOf('lat');
+  let faltam = 10; // localiza no mapa até 10 endereços antigos por vez
+  return t.rows.map(function (r, i) {
+    if (r[iLat] === '' && r[COLS.indexOf('end')] && faltam-- > 0) {
+      const g = geo(r[COLS.indexOf('end')]);
+      if (g) {
+        r[iLat] = String(g.lat); r[iLat + 1] = String(g.lng); r[iLat + 2] = g.cidade;
+        t.sh.getRange(i + 2, iLat + 1, 1, 3).setNumberFormat('@').setValues([[r[iLat], r[iLat + 1], r[iLat + 2]]]);
+      }
+    }
     const a = {};
-    COLS.forEach(function (c, i) { a[c] = r[i]; });
+    COLS.forEach(function (c, j) { a[c] = r[j]; });
     a.valor = Number(a.valor) || 0;
     a.dep = Number(a.dep) || 0;
     a.n = Number(a.n) || 1;
+    a.lat = a.lat === '' ? '' : Number(a.lat);
+    a.lng = a.lng === '' ? '' : Number(a.lng);
     delete a.evento;
     delete a.criado;
     return a;
@@ -95,6 +112,10 @@ function listar() {
 function adicionar(a) {
   const t = linhas();
   if (!a || !a.id || acharLinha(t.rows, a.id) > -1) return; // já existe: ignora repetido
+  if (a.lat === undefined || a.lat === '') {
+    const g = geo(a.end);
+    if (g) { a.lat = g.lat; a.lng = g.lng; a.cidade = g.cidade; }
+  }
   const ev = agenda().createEvent(titulo(a), inicio(a), fim(a), { description: descricao(a), location: a.end || '' });
   const row = COLS.map(function (c) {
     if (c === 'evento') return ev.getId();
@@ -124,6 +145,28 @@ function remover(id) {
   const ev = evento(t.rows[i][COLS.indexOf('evento')]);
   if (ev) ev.deleteEvent();
   t.sh.deleteRow(i + 2);
+}
+
+// ---------- Mapa ----------
+
+// Localiza um endereço (serviço de mapas do próprio Google, sem chave de API).
+// Devolve {lat, lng, cidade} ou null se não encontrar.
+function geo(end) {
+  end = String(end || '').trim();
+  if (!end) return null;
+  const cache = CacheService.getScriptCache();
+  const k = 'geo:' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, end.toLowerCase()));
+  const salvo = cache.get(k);
+  if (salvo) return JSON.parse(salvo);
+  const r = Maps.newGeocoder().setRegion('us').geocode(end);
+  let g = null;
+  if (r.status === 'OK' && r.results.length) {
+    const res = r.results[0];
+    const cid = res.address_components.filter(function (c) { return c.types.indexOf('locality') > -1; })[0];
+    g = { lat: res.geometry.location.lat, lng: res.geometry.location.lng, cidade: cid ? cid.long_name : '' };
+  }
+  cache.put(k, JSON.stringify(g), 21600);
+  return g;
 }
 
 function lerCfg() {

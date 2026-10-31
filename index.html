@@ -90,6 +90,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--gold);outl
 <section id="s4">
 <h2>Dia e horário</h2>
 <label>Dia</label><div class="chips" id="days"></div>
+<p class="note" id="distNote"></p>
+<label id="ignBox" class="hide" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="ignDist" style="width:auto"> Ignorar distância (marcar mesmo assim)</label>
 <label>Horário</label><div class="chips" id="hours"></div>
 <button class="btn" id="n4" disabled>Revisar</button>
 <button class="btn alt" data-back="3">Voltar</button>
@@ -121,6 +123,8 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--gold);outl
 <label for="cc">Código do país (EUA = 1)</label><input id="cc" inputmode="numeric">
 <label for="cur">Moeda</label><input id="cur">
 <label for="depPct">Sinal para confirmar (%)</label><input id="depPct" inputmode="decimal">
+<label for="raio">Distância máxima entre clientes no mesmo dia (milhas, em linha reta; 0 = sem limite)</label><input id="raio" inputmode="decimal">
+<p class="note">Precisa do Google Agenda ligado, que é quem encontra os endereços no mapa.</p>
 <h2 style="margin-top:24px">Google Agenda</h2>
 <p class="note">Com o link do script e a chave secreta, a agenda e os preços ficam iguais em todos os aparelhos e cada agendamento entra sozinho no Google Agenda. Deixe em branco para usar só neste aparelho.</p>
 <label for="gUrl">Link do script (termina em /exec)</label><input id="gUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -166,6 +170,7 @@ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 cfg=load("kf_cfg_v3",D);appts=load("kf_appts",[]);
 if(!cfg.p||cfg.p.length!==4)cfg=D;
 cfg.dep=cfg.dep||15;
+if(cfg.raio==null)cfg.raio=15;
 var G=load("kf_google",{url:"",key:""}),Q=load("kf_q",[]),busy=[],syncing=false;
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 appts.forEach(function(a){if(!a.id)a.id=uid()});
@@ -187,14 +192,14 @@ function gSync(){
       if(o.action==="add"&&!appts.some(function(a){return a.id===o.appt.id}))appts.push(o.appt);
       if(o.action==="del")appts=appts.filter(function(a){return a.id!==o.id});
       if(o.action==="status")appts.forEach(function(a){if(a.id===o.id)a.status=o.status})});
-    if(d.cfg&&d.cfg.p&&d.cfg.p.length===4&&!Q.some(function(o){return o.action==="cfg"})){cfg=d.cfg;cfg.dep=cfg.dep||15;save("kf_cfg_v3",cfg)}
+    if(d.cfg&&d.cfg.p&&d.cfg.p.length===4&&!Q.some(function(o){return o.action==="cfg"})){cfg=d.cfg;cfg.dep=cfg.dep||15;if(cfg.raio==null)cfg.raio=15;save("kf_cfg_v3",cfg)}
     save("kf_appts",appts);syncMsg("✓ Sincronizado com o Google Agenda");ok=true;
   }).catch(function(e){
     syncMsg(e.message==="chave"?"Chave secreta errada. Confira em Preços → Google Agenda.":"Sem conexão com o Google. "+Q.length+" alteração(ões) aguardando envio.");
   }).then(function(){syncing=false;refresh();if(ok&&Q.length)gSync()})}
 function refresh(){
   if($("sAg").classList.contains("show"))renderAg();
-  if($("s4").classList.contains("show")&&st.data)buildHours()}
+  if($("s4").classList.contains("show")){buildDays();if(st.data)buildHours()}}
 
 function money(v){return cfg.cur+Number(v).toFixed(2)}
 function price(c){c=c||st;return cfg.p[c.cat][c.serv==="full"?0:1]}
@@ -218,6 +223,9 @@ $("tel").oninput=function(){var d=this.value.replace(/\D/g,"").slice(0,10);
 $("n1").onclick=function(){
   st.nome=$("nome").value.trim();st.tel=$("tel").value.replace(/\D/g,"");st.end=$("end").value.trim();
   if(!st.nome||st.tel.length<10||!st.end){alert("Preencha nome, telefone com 10 dígitos e endereço.");return}
+  // Localiza o endereço no mapa (pelo script do Google) para conferir a distância na etapa 4.
+  if(gOn()&&st.end!==st.geoEnd){var end=st.end;st.geoEnd=end;st.geo=undefined;
+    gCall({action:"geo",end:end}).then(function(d){if(st.geoEnd===end)st.geo=d.geo||null},function(){if(st.geoEnd===end){st.geo=undefined;st.geoEnd=null}}).then(refresh)}
   st.step=2;show(2)};
 
 // Etapa 2
@@ -250,19 +258,36 @@ document.querySelectorAll(".opt").forEach(function(o){o.onclick=function(){
   st.serv=o.dataset.s;
   document.querySelectorAll(".opt").forEach(function(x){x.classList.toggle("sel",x===o)});
   $("n3").disabled=false;$("addCar").disabled=false;if(st.curAdded)st.cars[st.cars.length-1].serv=st.serv}});
-$("n3").onclick=function(){addCar();buildDays();st.data=null;st.hora=null;$("hours").innerHTML="";$("n4").disabled=true;st.step=4;show(4);gSync()};
+$("n3").onclick=function(){addCar();st.data=null;st.hora=null;$("ignDist").checked=false;buildDays();$("hours").innerHTML="";$("n4").disabled=true;st.step=4;show(4);gSync()};
 
 // Etapa 4
 var DS=["dom","seg","ter","qua","qui","sex","sáb"],HS=["8:00 AM","9:00 AM","10:00 AM","11:00 AM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM"];
 function iso(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
 function br(s){var p=s.split("-");return p[1]+"/"+p[2]}
-function buildDays(){var h="",t=new Date();
-  for(var i=0;i<14;i++){var d=new Date(t.getFullYear(),t.getMonth(),t.getDate()+i);
-    h+='<button class="chip day" data-d="'+iso(d)+'">'+DS[d.getDay()]+"<br><b>"+("0"+(d.getMonth()+1)).slice(-2)+"/"+("0"+d.getDate()).slice(-2)+"</b></button>"}
+// Distância em linha reta (milhas) entre dois pontos {lat,lng}.
+function milhas(p,q){var r=Math.PI/180,a=Number(p.lat)*r,b=Number(q.lat)*r,dl=b-a,dn=(Number(q.lng)-Number(p.lng))*r,
+  x=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a)*Math.cos(b)*Math.sin(dn/2)*Math.sin(dn/2);return 7917.6*Math.asin(Math.min(1,Math.sqrt(x)))}
+// Cliente mais distante já marcado no dia d, se passar do limite; senão null.
+function longe(d){
+  if(!gOn()||!(cfg.raio>0)||!st.geo||$("ignDist").checked)return null;
+  var pior=null;
+  appts.forEach(function(a){if(a.data!==d||a.lat===""||a.lat==null)return;var mi=milhas(st.geo,a);
+    if(mi>cfg.raio&&(!pior||mi>pior.mi))pior={mi:mi,a:a}});
+  return pior}
+function buildDays(){var h="",t=new Date(),avisos=[];
+  for(var i=0;i<14;i++){var d=new Date(t.getFullYear(),t.getMonth(),t.getDate()+i),k=iso(d),l=longe(k);
+    if(l){avisos.push(DS[d.getDay()]+" "+br(k)+": "+Math.round(l.mi)+" mi de "+esc(l.a.nome)+(l.a.cidade?" ("+esc(l.a.cidade)+")":""));if(st.data===k){st.data=null;st.hora=null}}
+    h+='<button class="chip day'+(st.data===k?" sel":"")+'" data-d="'+k+'"'+(l?" disabled":"")+">"+DS[d.getDay()]+"<br><b>"+br(k)+"</b>"+(l?"<br><small>longe</small>":"")+"</button>"}
   $("days").innerHTML=h;
+  var semMapa=gOn()&&cfg.raio>0&&st.geo===null;
+  $("distNote").innerHTML=avisos.length?"Dias bloqueados por distância (limite "+cfg.raio+" mi):<br>"+avisos.join("<br>"):
+    semMapa?"Não achei esse endereço no mapa, então a distância não foi conferida.":"";
+  $("ignBox").classList.toggle("hide",!avisos.length&&!$("ignDist").checked);
+  if(!st.data){$("hours").innerHTML="";$("n4").disabled=true}
   $("days").querySelectorAll(".chip").forEach(function(c){c.onclick=function(){
     st.data=c.dataset.d;st.hora=null;$("n4").disabled=true;
     $("days").querySelectorAll(".chip").forEach(function(x){x.classList.toggle("sel",x===c)});buildHours()}})}
+$("ignDist").onchange=function(){buildDays();if(st.data)buildHours()};
 // Cada carro ocupa 3 horas. Um horário fica livre se não encosta em outro
 // agendamento nem em compromisso do Google Agenda.
 function mins(h){var m=String(h).match(/(\d+):(\d+) (AM|PM)/);return m?((+m[1]%12)+(m[3]==="PM"?12:0))*60+(+m[2]):0}
@@ -290,6 +315,7 @@ $("send").onclick=function(){
   var used=[];st.cars.forEach(function(c){if(used.indexOf(c.serv)<0)used.push(c.serv)});
   var msg="Olá, "+st.nome+"! 🚗✨ Aqui é da *"+cfg.names+"*.\n\nSegue o resumo do seu agendamento:\n\n"+st.cars.map(function(c,i){return"🚗 *Carro "+(i+1)+":* "+c.marca+" "+c.modelo+"\n🧼 *Serviço:* "+svcName(c)+"\n💵 *Valor:* "+money(price(c))}).join("\n\n")+"\n\n"+used.map(function(k){return INC[k]}).join("\n\n")+"\n\n📅 *Data:* "+br(st.data)+"\n⏰ *Horário:* "+st.hora+"\n📍 *Local:* "+st.end+"\n\n💰 *Total:* "+money(total())+"\n\n⚠️ Para confirmar o agendamento, peço *"+cfg.dep+"%* do valor ("+money(dep())+").\n\nPara confirmar, responda *SIM*. Se não quiser essa data, responda *NÃO* que o horário será liberado. Obrigado!";
   if(!st.saved){var a={id:uid(),data:st.data,hora:st.hora,nome:st.nome,carro:st.cars.map(function(c){return c.marca+" "+c.modelo}).join(" + "),serv:st.cars.map(function(c){return svcName(c)}).join(" + "),valor:total(),tel:st.tel,end:st.end,dep:dep(),n:st.cars.length,status:"pendente"};
+    if(st.geo){a.lat=st.geo.lat;a.lng=st.geo.lng;a.cidade=st.geo.cidade||""}
     appts.push(a);save("kf_appts",appts);st.saved=true;gQueue({action:"add",appt:a})}
   var num=st.tel.length>10?st.tel:cfg.cc+st.tel;
   var url="https://wa.me/"+num+"?text="+encodeURIComponent(msg);
@@ -323,13 +349,14 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;
 // Preços
 $("bSet").onclick=function(){
   $("setBox").innerHTML=CATS.map(function(c,i){return"<label>"+c+'</label><div class="grid"><input data-p="'+i+'0" inputmode="decimal" value="'+cfg.p[i][0]+'" aria-label="Full Detail '+c+'"><input data-p="'+i+'1" inputmode="decimal" value="'+cfg.p[i][1]+'" aria-label="Interior Detail '+c+'"></div>'}).join("")+'<p class="note">Esquerda: Full Detail · Direita: Interior Detail</p>';
-  $("cc").value=cfg.cc;$("cur").value=cfg.cur;$("depPct").value=cfg.dep;
+  $("cc").value=cfg.cc;$("cur").value=cfg.cur;$("depPct").value=cfg.dep;$("raio").value=cfg.raio;
   $("gUrl").value=G.url;$("gKey").value=G.key;$("gNote").textContent="";show("sSet")};
 $("saveSet").onclick=function(){
   var antes=JSON.stringify(cfg);
   document.querySelectorAll("[data-p]").forEach(function(i){var k=i.dataset.p;cfg.p[+k[0]][+k[1]]=parseFloat(String(i.value).replace(",","."))||0});
   cfg.cc=$("cc").value.replace(/\D/g,"")||"1";cfg.cur=$("cur").value||"$";
-  cfg.dep=parseFloat(String($("depPct").value).replace(",","."))||15;save("kf_cfg_v3",cfg);
+  cfg.dep=parseFloat(String($("depPct").value).replace(",","."))||15;
+  var ra=parseFloat(String($("raio").value).replace(",","."));cfg.raio=isNaN(ra)||ra<0?15:ra;save("kf_cfg_v3",cfg);
   var url=$("gUrl").value.trim(),key=$("gKey").value.trim(),novo=url!==G.url||key!==G.key;
   G={url:url,key:key};save("kf_google",G);
   if(!gOn()){busy=[];show(st.step||1);return}
@@ -344,7 +371,7 @@ $("bkCopy").onclick=function(){var t=JSON.stringify({appts:appts,cfg:cfg}),b=$("
   try{navigator.clipboard.writeText(t).then(ok,function(){try{document.execCommand("copy");ok()}catch(e){}})}catch(e){try{document.execCommand("copy");ok()}catch(x){}}};
 $("bkRest").onclick=function(){var b=$("bkBox");
   if(b.classList.contains("hide")||b.dataset.mode!=="r"){b.classList.remove("hide");b.value="";b.dataset.mode="r";$("bkNote").textContent="Cole o backup na caixa e toque em Restaurar de novo.";return}
-  try{var d=JSON.parse(b.value);if(!Array.isArray(d.appts))throw 0;appts=d.appts;if(d.cfg&&d.cfg.p&&d.cfg.p.length===4){cfg=d.cfg;cfg.dep=cfg.dep||15}
+  try{var d=JSON.parse(b.value);if(!Array.isArray(d.appts))throw 0;appts=d.appts;if(d.cfg&&d.cfg.p&&d.cfg.p.length===4){cfg=d.cfg;cfg.dep=cfg.dep||15;if(cfg.raio==null)cfg.raio=15}
     appts.forEach(function(a){if(!a.id)a.id=uid();Q.push({action:"add",appt:a})});if(gOn())save("kf_q",Q);else Q=[];
     save("kf_appts",appts);save("kf_cfg_v3",cfg);b.value="";b.classList.add("hide");b.dataset.mode="";$("bAg").onclick();$("bkNote").textContent="Backup restaurado."}
   catch(e){$("bkNote").textContent="Backup inválido. Cole o texto completo que foi copiado."}};
