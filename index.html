@@ -170,7 +170,9 @@ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 cfg=load("kf_cfg_v3",D);appts=load("kf_appts",[]);
 if(!cfg.p||cfg.p.length!==4)cfg=D;
 cfg.dep=cfg.dep||15;
-if(cfg.raio==null)cfg.raio=15;
+// Limite de distância: 5 milhas (raioV marca configurações já com esse padrão).
+function fixRaio(){if(cfg.raioV!==2){cfg.raio=5;cfg.raioV=2}}
+fixRaio();
 var G=load("kf_google",{url:"",key:""}),Q=load("kf_q",[]),busy=[],syncing=false;
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 appts.forEach(function(a){if(!a.id)a.id=uid()});
@@ -192,7 +194,7 @@ function gSync(){
       if(o.action==="add"&&!appts.some(function(a){return a.id===o.appt.id}))appts.push(o.appt);
       if(o.action==="del")appts=appts.filter(function(a){return a.id!==o.id});
       if(o.action==="status")appts.forEach(function(a){if(a.id===o.id)a.status=o.status})});
-    if(d.cfg&&d.cfg.p&&d.cfg.p.length===4&&!Q.some(function(o){return o.action==="cfg"})){cfg=d.cfg;cfg.dep=cfg.dep||15;if(cfg.raio==null)cfg.raio=15;save("kf_cfg_v3",cfg)}
+    if(d.cfg&&d.cfg.p&&d.cfg.p.length===4&&!Q.some(function(o){return o.action==="cfg"})){cfg=d.cfg;cfg.dep=cfg.dep||15;fixRaio();save("kf_cfg_v3",cfg)}
     save("kf_appts",appts);syncMsg("✓ Sincronizado com o Google Agenda");ok=true;
   }).catch(function(e){
     syncMsg(e.message==="chave"?"Chave secreta errada. Confira em Preços → Google Agenda.":"Sem conexão com o Google. "+Q.length+" alteração(ões) aguardando envio.");
@@ -356,7 +358,7 @@ $("saveSet").onclick=function(){
   document.querySelectorAll("[data-p]").forEach(function(i){var k=i.dataset.p;cfg.p[+k[0]][+k[1]]=parseFloat(String(i.value).replace(",","."))||0});
   cfg.cc=$("cc").value.replace(/\D/g,"")||"1";cfg.cur=$("cur").value||"$";
   cfg.dep=parseFloat(String($("depPct").value).replace(",","."))||15;
-  var ra=parseFloat(String($("raio").value).replace(",","."));cfg.raio=isNaN(ra)||ra<0?15:ra;save("kf_cfg_v3",cfg);
+  var ra=parseFloat(String($("raio").value).replace(",","."));cfg.raio=isNaN(ra)||ra<0?5:ra;save("kf_cfg_v3",cfg);
   var url=$("gUrl").value.trim(),key=$("gKey").value.trim(),novo=url!==G.url||key!==G.key;
   G={url:url,key:key};save("kf_google",G);
   if(!gOn()){busy=[];show(st.step||1);return}
@@ -371,7 +373,7 @@ $("bkCopy").onclick=function(){var t=JSON.stringify({appts:appts,cfg:cfg}),b=$("
   try{navigator.clipboard.writeText(t).then(ok,function(){try{document.execCommand("copy");ok()}catch(e){}})}catch(e){try{document.execCommand("copy");ok()}catch(x){}}};
 $("bkRest").onclick=function(){var b=$("bkBox");
   if(b.classList.contains("hide")||b.dataset.mode!=="r"){b.classList.remove("hide");b.value="";b.dataset.mode="r";$("bkNote").textContent="Cole o backup na caixa e toque em Restaurar de novo.";return}
-  try{var d=JSON.parse(b.value);if(!Array.isArray(d.appts))throw 0;appts=d.appts;if(d.cfg&&d.cfg.p&&d.cfg.p.length===4){cfg=d.cfg;cfg.dep=cfg.dep||15;if(cfg.raio==null)cfg.raio=15}
+  try{var d=JSON.parse(b.value);if(!Array.isArray(d.appts))throw 0;appts=d.appts;if(d.cfg&&d.cfg.p&&d.cfg.p.length===4){cfg=d.cfg;cfg.dep=cfg.dep||15;fixRaio()}
     appts.forEach(function(a){if(!a.id)a.id=uid();Q.push({action:"add",appt:a})});if(gOn())save("kf_q",Q);else Q=[];
     save("kf_appts",appts);save("kf_cfg_v3",cfg);b.value="";b.classList.add("hide");b.dataset.mode="";$("bAg").onclick();$("bkNote").textContent="Backup restaurado."}
   catch(e){$("bkNote").textContent="Backup inválido. Cole o texto completo que foi copiado."}};

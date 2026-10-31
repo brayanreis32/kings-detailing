@@ -11,7 +11,7 @@ agendamento vira um evento na agenda "Kings of Detailing" do Google (3 horas por
 carro) e os horários ocupados no seu Google Agenda ficam bloqueados no sistema.
 Os agendamentos também ficam guardados numa planilha "Kings of Detailing – Agenda".
 Também bloqueia, num dia que já tem cliente, os clientes que moram mais longe que o
-limite de milhas definido em Preços.
+limite de milhas definido em Preços (padrão: 5 milhas).
 
 1. Acesse https://script.google.com e clique em **Novo projeto**.
 2. Apague o que estiver lá e cole o conteúdo de `google-apps-script/Code.gs`.
