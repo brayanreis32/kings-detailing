@@ -40,6 +40,15 @@ function doPost(e) {
       case 'status': mudarStatus(p.id, p.status); break;
       case 'del': remover(p.id); break;
       case 'cfg': PropertiesService.getScriptProperties().setProperty('cfg', JSON.stringify(p.cfg)); break;
+      // Financeiro
+      case 'fin_list': return saida({ ok: true, tx: finListar(), cfg: finCfg(), banco: finBancoInfo() });
+      case 'fin_add': finAdicionar(p.txs); break;
+      case 'fin_upd': finAtualizar(p.tx); break;
+      case 'fin_del': finRemover(p.id); break;
+      case 'fin_cfg': PropertiesService.getScriptProperties().setProperty('fin_cfg', JSON.stringify(p.cfg)); break;
+      case 'fin_banco': return saida(finConectar(p.token));
+      case 'fin_puxar': return saida(finPuxar());
+      case 'fin_desligar': finDesligar(); break;
       default: return saida({ ok: false, erro: 'acao' });
     }
     return saida({ ok: true });
@@ -60,7 +69,8 @@ function planilha() {
   const props = PropertiesService.getScriptProperties();
   const id = props.getProperty('planilha');
   if (id) {
-    const s = SpreadsheetApp.openById(id).getSheets()[0];
+    // A agenda é a primeira aba que não seja a do Financeiro.
+    const s = SpreadsheetApp.openById(id).getSheets().filter(function (x) { return x.getName() !== 'Financeiro'; })[0];
     if (s.getLastColumn() < COLS.length) s.getRange(1, 1, 1, COLS.length).setValues([COLS]).setFontWeight('bold');
     return s;
   }
@@ -234,3 +244,189 @@ function ocupados() {
 
 function dia(d) { return Utilities.formatDate(d, FUSO, 'yyyy-MM-dd'); }
 function minutos(d) { const p = Utilities.formatDate(d, FUSO, 'H:mm').split(':'); return Number(p[0]) * 60 + Number(p[1]); }
+
+
+// ---------- Financeiro ----------
+// Lançamentos ficam na aba "Financeiro" da mesma planilha. O valor é com sinal:
+// positivo = entrou, negativo = saiu.
+
+const COLS_FIN = ['id', 'data', 'valor', 'desc', 'cat', 'conta', 'nchk', 'nota', 'origem', 'ext', 'contaNome', 'criado'];
+const HORAS_BANCO = 6; // de quantas em quantas horas o script busca o banco sozinho
+
+function finAba() {
+  const ss = planilha().getParent();
+  let sh = ss.getSheetByName('Financeiro');
+  if (!sh) {
+    sh = ss.insertSheet('Financeiro');
+    sh.getRange(1, 1, 1, COLS_FIN.length).setValues([COLS_FIN]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function finLinhas() {
+  const sh = finAba();
+  const n = sh.getLastRow() - 1;
+  return { sh: sh, rows: n < 1 ? [] : sh.getRange(2, 1, n, COLS_FIN.length).getDisplayValues() };
+}
+
+function finObj(r) {
+  const t = {};
+  COLS_FIN.forEach(function (c, j) { t[c] = r[j]; });
+  t.valor = Number(t.valor) || 0;
+  return t;
+}
+
+function finLinha(t) {
+  return COLS_FIN.map(function (c) {
+    if (c === 'valor') return (Number(t.valor) || 0).toFixed(2);
+    return t[c] === undefined || t[c] === null ? '' : String(t[c]);
+  });
+}
+
+function finListar() {
+  return finLinhas().rows.filter(function (r) { return r[0]; }).map(finObj);
+}
+
+function finAdicionar(txs) {
+  if (!txs || !txs.length) return 0;
+  const t = finLinhas();
+  const ids = {}, exts = {};
+  t.rows.forEach(function (r) { ids[r[0]] = 1; if (r[9]) exts[r[9]] = 1; });
+  const novas = [];
+  txs.forEach(function (x) {
+    if (!x || !x.id || ids[x.id] || (x.ext && exts[x.ext])) return; // repetido: ignora
+    ids[x.id] = 1;
+    if (x.ext) exts[x.ext] = 1;
+    if (!x.criado) x.criado = new Date().toISOString();
+    novas.push(finLinha(x));
+  });
+  if (novas.length) t.sh.getRange(t.sh.getLastRow() + 1, 1, novas.length, COLS_FIN.length).setNumberFormat('@').setValues(novas);
+  return novas.length;
+}
+
+function finAtualizar(x) {
+  if (!x || !x.id) return;
+  const t = finLinhas();
+  const i = acharLinha(t.rows, x.id);
+  if (i < 0) { finAdicionar([x]); return; }
+  t.sh.getRange(i + 2, 1, 1, COLS_FIN.length).setNumberFormat('@').setValues([finLinha(x)]);
+}
+
+function finRemover(id) {
+  const t = finLinhas();
+  const i = acharLinha(t.rows, id);
+  if (i > -1) t.sh.deleteRow(i + 2);
+}
+
+function finCfg() {
+  const s = PropertiesService.getScriptProperties().getProperty('fin_cfg');
+  return s ? JSON.parse(s) : null;
+}
+
+// Mesmas regras do sistema: a primeira palavra que aparecer na descrição define a categoria.
+function finRegra(cfg, desc, conta) {
+  if (!cfg || !cfg.regras) return '';
+  const d = String(desc || '').toLowerCase();
+  for (let i = 0; i < cfg.regras.length; i++) {
+    const r = cfg.regras[i];
+    if (r.k && d.indexOf(String(r.k).toLowerCase()) > -1 && (!r.conta || r.conta === conta)) return r.cat;
+  }
+  return '';
+}
+
+// ---------- Banco (SimpleFIN Bridge) ----------
+// O SimpleFIN se conecta ao Bank of America (somente leitura). O sistema manda o
+// "Setup Token" uma vez; aqui ele vira um link de acesso guardado só neste script.
+
+function finConectar(token) {
+  let claim;
+  try { claim = Utilities.newBlob(Utilities.base64Decode(String(token || '').trim())).getDataAsString(); } catch (err) { claim = ''; }
+  if (!/^https:\/\//.test(claim)) return { ok: false, erro: 'Setup Token inválido. Copie de novo do SimpleFIN.' };
+  const r = UrlFetchApp.fetch(claim, { method: 'post', muteHttpExceptions: true });
+  if (r.getResponseCode() !== 200) return { ok: false, erro: 'O SimpleFIN recusou o token (cada token só funciona uma vez). Gere um novo.' };
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('fin_sf', r.getContentText().trim());
+  props.deleteProperty('fin_pull');
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'puxarBanco') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('puxarBanco').timeBased().everyHours(HORAS_BANCO).create();
+  return finPuxar();
+}
+
+function finDesligar() {
+  const props = PropertiesService.getScriptProperties();
+  ['fin_sf', 'fin_pull', 'fin_contas', 'fin_erro'].forEach(function (k) { props.deleteProperty(k); });
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'puxarBanco') ScriptApp.deleteTrigger(t); });
+}
+
+function finBancoInfo() {
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('fin_sf')) return { on: false };
+  return {
+    on: true,
+    pull: Number(props.getProperty('fin_pull')) || 0,
+    contas: JSON.parse(props.getProperty('fin_contas') || '[]'),
+    erro: props.getProperty('fin_erro') || ''
+  };
+}
+
+// Roda sozinho a cada HORAS_BANCO horas (gatilho criado ao conectar o banco).
+function puxarBanco() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try { finPuxar(); } finally { lock.releaseLock(); }
+}
+
+function finPuxar() {
+  const props = PropertiesService.getScriptProperties();
+  const acesso = props.getProperty('fin_sf');
+  if (!acesso) return { ok: false, erro: 'banco_off' };
+  const m = acesso.match(/^(https?:\/\/)([^:@\/]+):([^@\/]+)@(.+)$/);
+  if (!m) return { ok: false, erro: 'Link do SimpleFIN inválido. Conecte o banco de novo.' };
+
+  // Primeira vez: últimos 60 dias. Depois: desde a última busca, com folga de 10 dias.
+  const ultima = Number(props.getProperty('fin_pull')) || 0;
+  const desde = Math.floor((ultima ? ultima - 10 * 86400000 : Date.now() - 60 * 86400000) / 1000);
+  const r = UrlFetchApp.fetch(m[1] + m[4] + '/accounts?start-date=' + desde, {
+    headers: { Authorization: 'Basic ' + Utilities.base64Encode(decodeURIComponent(m[2]) + ':' + decodeURIComponent(m[3])) },
+    muteHttpExceptions: true
+  });
+  if (r.getResponseCode() === 403) return { ok: false, erro: 'O SimpleFIN cancelou o acesso. Conecte o banco de novo.' };
+  if (r.getResponseCode() !== 200) return { ok: false, erro: 'SimpleFIN respondeu ' + r.getResponseCode() + '. Tente mais tarde.' };
+  const d = JSON.parse(r.getContentText());
+  const cfg = finCfg();
+  const txs = [], contas = [];
+
+  (d.accounts || []).forEach(function (a) {
+    const org = a.org && (a.org.name || a.org.domain) || '';
+    const conta = /venmo/i.test(org + ' ' + a.name) ? 'venmo' : /bank of america|bofa/i.test(org + ' ' + a.name) ? 'boa' : 'outro';
+    contas.push({ nome: a.name, org: org, saldo: Number(a.balance) || 0, data: Number(a['balance-date']) || 0 });
+    (a.transactions || []).forEach(function (t) {
+      if (t.pending || !t.posted) return;
+      const valor = Number(t.amount) || 0;
+      if (!valor) return;
+      const desc = String(t.description || t.payee || '').replace(/\s+/g, ' ').trim();
+      const ext = 'sf:' + a.id + ':' + t.id;
+      txs.push({
+        id: 'sf' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, ext)).slice(0, 16),
+        data: Utilities.formatDate(new Date(t.posted * 1000), FUSO, 'yyyy-MM-dd'),
+        valor: valor,
+        desc: desc,
+        cat: finRegra(cfg, desc + ' ' + (t.payee || ''), conta) || 'nc',
+        conta: conta,
+        nchk: '',
+        nota: t.memo || '',
+        origem: 'banco',
+        ext: ext,
+        contaNome: a.name
+      });
+    });
+  });
+
+  const novos = finAdicionar(txs);
+  const erros = (d.errors || []).concat((d.errlist || []).map(function (e) { return e.msg || e.message || String(e); }));
+  props.setProperty('fin_pull', String(Date.now()));
+  props.setProperty('fin_contas', JSON.stringify(contas));
+  props.setProperty('fin_erro', erros.join(' ').slice(0, 500));
+  return { ok: true, novos: novos, banco: finBancoInfo() };
+}
