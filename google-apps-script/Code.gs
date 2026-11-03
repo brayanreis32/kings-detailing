@@ -387,7 +387,7 @@ function finPuxar() {
   // Primeira vez: últimos 45 dias (limite recomendado do SimpleFIN). Depois: desde a última busca, com folga de 10 dias.
   const ultima = Number(props.getProperty('fin_pull')) || 0;
   const desde = Math.floor((ultima ? ultima - 10 * 86400000 : Date.now() - 45 * 86400000) / 1000);
-  const r = UrlFetchApp.fetch(m[1] + m[4] + '/accounts?start-date=' + desde, {
+  const r = UrlFetchApp.fetch(m[1] + m[4] + '/accounts?pending=1&start-date=' + desde, {
     headers: { Authorization: 'Basic ' + Utilities.base64Encode(decodeURIComponent(m[2]) + ':' + decodeURIComponent(m[3])) },
     muteHttpExceptions: true
   });
@@ -400,7 +400,12 @@ function finPuxar() {
   (d.accounts || []).forEach(function (a) {
     const org = a.org && (a.org.name || a.org.domain) || '';
     const conta = /venmo/i.test(org + ' ' + a.name) ? 'venmo' : /bank of america|bofa/i.test(org + ' ' + a.name) ? 'boa' : 'outro';
-    contas.push({ nome: a.name, org: org, saldo: Number(a.balance) || 0, data: Number(a['balance-date']) || 0 });
+    // Compras pendentes não viram lançamento (o banco troca o código quando confirma),
+    // mas entram na conta do saldo disponível mostrado no sistema.
+    let pend = 0;
+    (a.transactions || []).forEach(function (t) { if (t.pending || !t.posted) pend += Number(t.amount) || 0; });
+    const disp = a['available-balance'] === undefined || a['available-balance'] === '' ? null : Number(a['available-balance']);
+    contas.push({ nome: a.name, org: org, saldo: Number(a.balance) || 0, disp: disp, pend: Math.round(pend * 100) / 100, data: Number(a['balance-date']) || 0 });
     (a.transactions || []).forEach(function (t) {
       if (t.pending || !t.posted) return;
       const valor = Number(t.amount) || 0;

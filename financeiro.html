@@ -540,7 +540,13 @@ function renderCon(){
     return'<div class="acc"><div><b>'+c[1]+"</b><small>"+l.length+" lançamento(s)</small></div><div style=\"text-align:right\"><span class=\"ok\">+"+money(T.e)+'</span><small>−'+money(T.s)+"</small></div></div>"}).join("")||'<div class="empty">Nenhum lançamento em '+esc(perLbl())+".</div>";
   var on=!!BANCO.on;$("bkOn").classList.toggle("hide",!on);$("bkSetup").classList.toggle("hide",on);
   $("bkStatus").innerHTML=!gOn()?'<span class="bad">Ligue o Google em Ajustes primeiro.</span>':on?'<span class="ok">● Conectado.</span> '+(BANCO.pull?"Última busca: "+new Date(BANCO.pull).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})+".":"")+(BANCO.erro?'<br><span class="bad">Aviso do banco: '+esc(BANCO.erro)+"</span>":""):"Não conectado.";
-  $("bkContas").innerHTML=(BANCO.contas||[]).map(function(a){return'<div class="acc"><div><b>'+esc(a.nome)+"</b><small>"+esc(a.org||"")+(a.data?" · saldo de "+new Date(a.data*1000).toLocaleDateString("pt-BR"):"")+'</small></div><b>'+money(a.saldo)+"</b></div>"}).join("");
+  $("bkContas").innerHTML=(BANCO.contas||[]).map(function(a){
+    // Saldo disponível = o que o banco informa; se não vier, saldo menos as compras pendentes.
+    var disp=a.disp!=null?a.disp:a.pend?a.saldo+a.pend:null,quando=a.data?new Date(a.data*1000).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}):"";
+    return'<div class="acc"><div><b>'+esc(a.nome)+"</b><small>"+esc(a.org||"")+(quando?" · atualizado pelo banco em "+quando:"")+"</small>"+
+      (a.pend?'<small>Pendentes: '+money(a.pend)+"</small>":"")+'</div><div style="text-align:right">'+
+      (disp!=null&&Math.abs(disp-a.saldo)>0.004?'<b>'+money(disp)+'</b><small>disponível</small><small>saldo '+money(a.saldo)+"</small>":"<b>"+money(a.saldo)+"</b>")+"</div></div>"}).join("")+
+    '<p class="note">O SimpleFIN atualiza o banco cerca de 1 vez por dia. Compras de hoje e pendentes podem demorar para aparecer.</p>';
 }
 $("bkCon").onclick=function(){var tok=$("bkTok").value.trim();if(!gOn()){toast("Ligue o Google em Ajustes primeiro.");return}if(!tok){toast("Cole o Setup Token.");return}
   var b=this;b.disabled=true;b.textContent="Conectando…";
