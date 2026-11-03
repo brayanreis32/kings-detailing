@@ -24,8 +24,9 @@ h3{font:600 15px/1.2 Barlow,sans-serif;margin:16px 0 6px;color:var(--ag)}
 a{color:var(--gold)}
 .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .top a{font-size:14px;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;color:var(--ag)}
-.sync{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:6px}
-.sync i{width:8px;height:8px;border-radius:50%;background:var(--mut);display:inline-block}
+.sync{font-size:12px;color:var(--mut);display:flex;align-items:flex-start;gap:6px;max-width:260px}
+.sync.err{color:var(--warn)}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--mut);display:inline-block;flex:none;margin-top:5px}
 .sync.ok i{background:var(--in)}.sync.err i{background:var(--warn)}
 .per{display:flex;align-items:center;gap:6px;margin-bottom:10px}
 .per button{background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:10px;width:44px;height:44px;font-size:20px}
@@ -430,7 +431,7 @@ function bars(){
     for(var i=n-1;i>=0;i--){var mm=m-i,yy=y;while(mm<0){mm+=12;yy--}ms.push({y:yy,m:mm})}}
   $("barT").textContent=UI.modo==="ano"?"Mês a mês em "+UI.y:"Últimos "+ms.length+" meses";
   ms.forEach(function(o){var T=totais(TX.filter(function(t){return inPer(t,{modo:"mes",y:o.y,m:o.m})}));o.e=Math.max(0,T.e);o.s=Math.max(0,T.s);o.b=T.b});
-  var max=Math.max.apply(null,ms.map(function(o){return Math.max(o.e,o.s)}))||1;
+  var max=Math.max(100,Math.max.apply(null,ms.map(function(o){return Math.max(o.e,o.s)})));
   var step=Math.pow(10,Math.floor(Math.log10(max))),nice=Math.ceil(max/step)*step;if(nice/step>5&&step>=10)nice=Math.ceil(max/(step/2))*(step/2);
   var W=Math.max(300,Math.round($("bars").clientWidth||640)),H=220,L=44,B=24,T=10,ph=H-B-T,gw=(W-L)/ms.length,bw=Math.min(22,gw/2-6),svg="";
   for(var k=0;k<=3;k++){var gy=T+ph-ph*k/3,val=nice*k/3;svg+='<line x1="'+L+'" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)" stroke-width="1"/><text x="'+(L-6)+'" y="'+(gy+4)+'" text-anchor="end" font-size="11" fill="var(--mut)">'+(val>=1000?"$"+(val/1000).toFixed(val%1000?1:0)+"k":"$"+Math.round(val))+"</text>"}
@@ -544,13 +545,13 @@ function renderCon(){
 $("bkCon").onclick=function(){var tok=$("bkTok").value.trim();if(!gOn()){toast("Ligue o Google em Ajustes primeiro.");return}if(!tok){toast("Cole o Setup Token.");return}
   var b=this;b.disabled=true;b.textContent="Conectando…";
   gCall({action:"fin_banco",token:tok}).then(function(d){$("bkTok").value="";toast("Banco conectado! "+(d.novos||0)+" transação(ões) nova(s).");return fSync()})
-  .catch(function(e){toast(e.message==="chave"?"Chave do Google errada.":/acao/.test(e.message)?"Atualize o script do Google (veja o README).":"Erro: "+e.message)})
+  .catch(function(e){toast(gErro(e))})
   .then(function(){b.disabled=false;b.textContent="Conectar banco"})};
 $("bkPull").onclick=function(){var b=this;b.disabled=true;b.textContent="Buscando…";puxar(true).then(function(){b.disabled=false;b.textContent="Buscar transações agora"})};
 $("bkOff").onclick=function(){var b=this;if(!b.dataset.arm){b.dataset.arm="1";b.textContent="Toque de novo para desconectar";setTimeout(function(){delete b.dataset.arm;b.textContent="Desconectar banco"},4000);return}
-  gCall({action:"fin_desligar"}).then(function(){BANCO={};saveAll();render();toast("Banco desconectado. Os lançamentos continuam salvos.")}).catch(function(e){toast("Erro: "+e.message)})};
+  gCall({action:"fin_desligar"}).then(function(){BANCO={};saveAll();render();toast("Banco desconectado. Os lançamentos continuam salvos.")}).catch(function(e){toast(gErro(e))})};
 function puxar(aviso){return gCall({action:"fin_puxar"}).then(function(d){if(aviso)toast(d.novos?d.novos+" transação(ões) nova(s) do banco.":"Nada novo no banco.");return fSync()})
-  .catch(function(e){if(aviso)toast(e.message==="banco_off"?"Banco não conectado.":"Erro: "+e.message)})}
+  .catch(function(e){if(aviso)toast(e.message==="banco_off"?"Banco não conectado.":gErro(e))})}
 
 // ---------- Importar CSV ----------
 function csv(text){var rows=[],row=[],f="",q=false;text=text.replace(/^﻿/,"");
@@ -613,7 +614,7 @@ $("ncAdd").onclick=function(){var n=$("ncNome").value.trim();if(!n)return;var tp
   var cor=0;for(var i=0;i<8;i++)if(usadas.indexOf(i)<0){cor=i;break}CFG.cats.push({id:uid(),nome:n,tipo:tp,cor:usadas.length<8?cor:usadas.length%8});$("ncNome").value="";cfgMudou();renderAju();toast("Categoria criada.")};
 $("nrAdd").onclick=function(){var k=$("nrK").value.trim().toLowerCase();if(!k)return;CFG.regras.unshift({k:k,cat:$("nrC").value,conta:""});$("nrK").value="";var n=aplicarRegras(true);cfgMudou();renderAju();toast("Regra criada"+(n?", "+n+" lançamento(s) classificado(s).":"."))};
 $("nrApply").onclick=function(){var n=aplicarRegras(true);saveAll();toast(n?n+" lançamento(s) classificado(s).":"Nenhum lançamento bateu com as regras.")};
-$("gSave").onclick=function(){var url=$("gUrl").value.trim(),key=$("gKey").value.trim(),novo=url!==G.url||key!==G.key;G={url:url,key:key};save("kf_google",G);
+$("gSave").onclick=function(){var url=$("gUrl").value.replace(/\s+/g,""),key=$("gKey").value.trim(),novo=url!==G.url||key!==G.key;G={url:url,key:key};save("kf_google",G);
   if(gOn()&&novo){enviarTudo();fSync()}else if(!gOn())setSync("off");toast("Salvo.")};
 function baixar(nome,txt,tipo){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:tipo}));a.download=nome;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}
 $("expCsv").onclick=function(){var l=TX.filter(function(t){return inPer(t)}).sort(function(a,b){return a.data<b.data?-1:1});
@@ -630,8 +631,17 @@ $("impJson").onchange=function(){var f=this.files[0],inp=this;if(!f)return;var r
 var fsyncing=false;
 function gOn(){return!!(G.url&&G.key)}
 function setSync(s,t){var e=$("sync");e.className="sync"+(s==="ok"?" ok":s==="err"?" err":"");e.querySelector("span").textContent=t||(s==="off"?"Só neste aparelho":"")}
-function gCall(p){return fetch(G.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({key:G.key},p))})
-  .then(function(r){return r.json()}).then(function(d){if(!d||!d.ok)throw new Error(d&&d.erro||"erro");return d})}
+// Mensagens claras para cada tipo de problema na ligação com o Google.
+function gCall(p){
+  if(!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec(\?.*)?$/.test(G.url))return Promise.reject(new Error("link"));
+  return fetch(G.url,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({key:G.key},p))})
+  .catch(function(){throw new Error("rede")})
+  .then(function(r){return r.text()}).then(function(t){var d;try{d=JSON.parse(t)}catch(e){throw new Error("acesso")}if(!d||!d.ok)throw new Error(d&&d.erro||"erro");return d})}
+function gErro(e,fila){var m=e.message;
+  return m==="chave"?"Chave errada: tem que ser igual à CHAVE do script":m==="acao"?"Atualize o script do Google (Nova versão)":
+    m==="link"?"Link errado: copie o link do App da Web que termina em /exec":
+    m==="acesso"?"O script não liberou o acesso: em Implantar, \"Quem pode acessar\" tem que ser \"Qualquer pessoa\"":
+    m==="rede"?"Sem internet"+(fila?" · "+FQ.length+" na fila":""):"Erro no script: "+m}
 function fQueue(op){if(!gOn())return;FQ.push(op);save("kf_fin_q",FQ);fSync()}
 // Na primeira vez com o Google, envia o que já está neste aparelho (o script ignora repetidos).
 function enviarTudo(){if(load("kf_fin_up","")===G.url)return;for(var i=0;i<TX.length;i+=200)FQ.push({action:"fin_add",txs:TX.slice(i,i+200)});FQ.push({action:"fin_cfg",cfg:CFG});save("kf_fin_q",FQ);save("kf_fin_up",G.url)}
@@ -652,7 +662,7 @@ function fSync(){
     aplicarRegras(true);
     saveAll();setSync("ok","Sincronizado");ok=true;
   }).catch(function(e){
-    setSync("err",e.message==="chave"?"Chave do Google errada":e.message==="acao"?"Atualize o script do Google":"Sem conexão · "+FQ.length+" na fila");
+    setSync("err",gErro(e,true));
   }).then(function(){fsyncing=false;render();if(ok&&FQ.length)return fSync()})}
 
 fillSel();render();
