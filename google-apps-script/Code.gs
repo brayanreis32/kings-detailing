@@ -384,9 +384,9 @@ function finPuxar() {
   const m = acesso.match(/^(https?:\/\/)([^:@\/]+):([^@\/]+)@(.+)$/);
   if (!m) return { ok: false, erro: 'Link do SimpleFIN inválido. Conecte o banco de novo.' };
 
-  // Primeira vez: últimos 60 dias. Depois: desde a última busca, com folga de 10 dias.
+  // Primeira vez: últimos 45 dias (limite recomendado do SimpleFIN). Depois: desde a última busca, com folga de 10 dias.
   const ultima = Number(props.getProperty('fin_pull')) || 0;
-  const desde = Math.floor((ultima ? ultima - 10 * 86400000 : Date.now() - 60 * 86400000) / 1000);
+  const desde = Math.floor((ultima ? ultima - 10 * 86400000 : Date.now() - 45 * 86400000) / 1000);
   const r = UrlFetchApp.fetch(m[1] + m[4] + '/accounts?start-date=' + desde, {
     headers: { Authorization: 'Basic ' + Utilities.base64Encode(decodeURIComponent(m[2]) + ':' + decodeURIComponent(m[3])) },
     muteHttpExceptions: true
