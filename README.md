@@ -7,8 +7,8 @@ Site: https://brayanreis32.github.io/kings-detailing/
 ## Integração com o Google Agenda (opcional)
 
 Com a integração, a agenda e os preços ficam iguais em todos os aparelhos, cada
-agendamento vira um evento na agenda "Kings of Detailing" do Google (3 horas por
-carro) e os horários ocupados no seu Google Agenda ficam bloqueados no sistema.
+agendamento vira um evento na agenda "Kings of Detailing" do Google (3 horas para
+um carro; com 2 ou mais carros, 2 horas cada) e os horários ocupados no seu Google Agenda ficam bloqueados no sistema.
 Os agendamentos também ficam guardados numa planilha "Kings of Detailing – Agenda".
 Também bloqueia, num dia que já tem cliente, os clientes que moram mais longe que o
 limite de milhas definido em Preços (padrão: 5 milhas).

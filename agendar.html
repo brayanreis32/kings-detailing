@@ -55,13 +55,22 @@ select:disabled{opacity:.5}
 .sum{border:1px solid var(--line);border-radius:10px;margin-top:14px}
 .sum div{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
 .sum div:last-child{border-bottom:0}
-.sum span{color:var(--mut)}
+.sum span{color:var(--mut);white-space:nowrap}
 .sum b{font-weight:500;text-align:right}
 .sum .tot b{font-weight:600;font-size:16px}
 .note{font-size:13px;color:var(--mut)}
 .err{color:var(--out);font-size:14px;margin-top:12px}
 .hide{display:none!important}
 .ok-ic{width:52px;height:52px;border-radius:50%;background:#34c38f22;color:var(--in);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px}
+.cars{border:1px solid var(--line);border-radius:10px;margin:14px 0 4px}
+.car{display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.car:last-child{border-bottom:0}
+.car .n{width:24px;height:24px;border-radius:50%;background:var(--card2);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+.car div{flex:1;min-width:0}.car small{display:block;color:var(--mut)}
+.car b{font-weight:600;white-space:nowrap}
+.car .x{background:none;border:0;color:var(--mut);font-size:20px;padding:2px 8px;border-radius:6px}
+.car .x:hover{color:var(--out);background:var(--card2)}
+.carsTot{display:flex;justify-content:space-between;padding:10px 12px;background:var(--card2);border-radius:0 0 10px 10px;font-weight:600}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .foot{text-align:center;color:var(--mut);font-size:12px;margin-top:22px}
 .load{color:var(--mut);font-size:14px;padding:12px 0}
@@ -73,7 +82,8 @@ select:disabled{opacity:.5}
 <div class="steps" id="steps"><i class="on">Serviço</i><i>Seus dados</i><i>Dia e horário</i><i>Confirmar</i></div>
 
 <section id="s1" class="show">
-  <h2>Qual é o seu carro?</h2>
+  <h2 id="t1">Qual é o seu carro?</h2>
+  <div id="carList"></div>
   <label for="marca">Marca</label><select id="marca"></select>
   <label for="modelo">Modelo</label><select id="modelo" disabled></select>
   <div id="outroBox" class="hide">
@@ -85,7 +95,8 @@ select:disabled{opacity:.5}
     <button class="opt" data-s="full"><span class="p" id="pFull"></span><b>Full Detail</b><small>Interior + exterior completo</small></button>
     <button class="opt" data-s="int"><span class="p" id="pInt"></span><b>Interior Detail</b><small>Limpeza e higienização interna</small></button>
   </div>
-  <p class="note" style="margin-top:12px">Mais de um carro? Faça um agendamento para cada um ou fale com a gente no WhatsApp.</p>
+  <button class="btn alt" id="addCar" disabled style="margin-top:16px">+ Adicionar outro carro</button>
+  <p class="note" style="margin-top:10px">Tem mais de um carro? Escolha o primeiro, toque em <b>+ Adicionar outro carro</b> e escolha o próximo.</p>
   <button class="btn" id="n1" disabled>Continuar</button>
 </section>
 
@@ -103,7 +114,7 @@ select:disabled{opacity:.5}
 
 <section id="s3">
   <h2>Escolha o dia e o horário</h2>
-  <p class="sub">Cada serviço leva cerca de 3 horas.</p>
+  <p class="sub" id="durTxt"></p>
   <label>Dia</label><div class="chips" id="days"></div>
   <label>Horário</label><div class="chips" id="hours"><p class="note">Escolha um dia primeiro.</p></div>
   <p class="err hide" id="e3"></p>
@@ -187,6 +198,8 @@ mk.onchange=function(){var md=$("modelo"),l=M[mk.value]||[];
   if(mk.value==="Outra marca"){md.value="x";md.disabled=true}
   carro()};
 $("modelo").onchange=carro;$("outroNome").oninput=carro;$("outroCat").onchange=carro;
+// st.cars: carros já adicionados. O carro sendo escolhido agora fica em st.cat/st.serv.
+st.cars=[];
 function carro(){var v=$("modelo").value,outro=mk.value==="Outra marca"||v==="x";
   $("outroBox").classList.toggle("hide",!outro);
   if(!mk.value||(!outro&&v==="")||(outro&&!$("outroNome").value.trim())){st.cat=null}
@@ -195,10 +208,23 @@ function carro(){var v=$("modelo").value,outro=mk.value==="Outra marca"||v==="x"
   st.marca=mk.value==="Outra marca"?"":mk.value;
   var ok=st.cat!=null;$("servBox").classList.toggle("hide",!ok);
   if(ok){$("pFull").textContent=money(CFG.p[st.cat][0]);$("pInt").textContent=money(CFG.p[st.cat][1])}
-  $("n1").disabled=!(ok&&st.serv)}
+  var pronto=ok&&!!st.serv;
+  $("addCar").disabled=!pronto||st.cars.length>=3;
+  $("n1").disabled=!(pronto||st.cars.length)}
+function preco(c){return CFG.p[c.cat][c.serv==="full"?0:1]}
+function svc(c){return c.serv==="full"?"Full Detail":"Interior Detail"}
+function listaCarros(){var l=st.cars;
+  $("t1").textContent=l.length?"Carro "+(l.length+1)+" (opcional)":"Qual é o seu carro?";
+  $("carList").innerHTML=l.length?'<div class="cars">'+l.map(function(c,i){return'<div class="car"><span class="n">'+(i+1)+"</span><div>"+esc(c.nome)+"<small>"+svc(c)+'</small></div><b>'+money(preco(c))+'</b><button class="x" data-rm="'+i+'" aria-label="Remover carro">×</button></div>'}).join("")+
+    (l.length>1?'<div class="carsTot"><span>'+l.length+" carros</span><span>"+money(total())+"</span></div>":"")+"</div>":"";
+  $("carList").querySelectorAll("[data-rm]").forEach(function(b){b.onclick=function(){st.cars.splice(+b.dataset.rm,1);listaCarros();carro()}})}
+function limparCarro(){mk.value="";mk.onchange();$("outroNome").value="";st.serv=null;st.cat=null;
+  document.querySelectorAll(".opt").forEach(function(x){x.classList.remove("sel")});$("servBox").classList.add("hide")}
+function guardarAtual(){if(st.cat==null||!st.serv)return;st.cars.push({nome:(st.marca+" "+st.modelo).trim(),cat:st.cat,serv:st.serv});limparCarro()}
+$("addCar").onclick=function(){guardarAtual();listaCarros();carro();window.scrollTo(0,0)};
 document.querySelectorAll(".opt").forEach(function(o){o.onclick=function(){st.serv=o.dataset.s;
   document.querySelectorAll(".opt").forEach(function(x){x.classList.toggle("sel",x===o)});carro()}});
-$("n1").onclick=function(){show("s2")};
+$("n1").onclick=function(){guardarAtual();listaCarros();carro();show("s2")};
 
 // 2. Dados
 $("n2").onclick=function(){var e=$("e2"),nome=$("nome").value.trim(),tel=$("tel").value.replace(/\D/g,""),end=$("end").value.trim();
@@ -208,14 +234,16 @@ $("n2").onclick=function(){var e=$("e2"),nome=$("nome").value.trim(),tel=$("tel"
   if(tel.length!==10){e.textContent="Digite o telefone com DDD (10 números).";e.classList.remove("hide");return}
   if(end.length<5){e.textContent="Digite o endereço completo, com cidade.";e.classList.remove("hide");return}
   st.nome=nome;st.tel=tel;st.end=end;var b=this;b.disabled=true;b.textContent="Buscando horários…";
-  Promise.all([call({action:"pub_info"}),call({action:"pub_dias",end:end})]).then(function(r){CFG=r[0].cfg;BUSY=r[0].busy||[];LONGE=r[1].longe||[];st.data=null;st.hora=null;dias();show("s3")})
+  Promise.all([call({action:"pub_info"}),call({action:"pub_dias",end:end})]).then(function(r){CFG=r[0].cfg;BUSY=r[0].busy||[];LONGE=r[1].longe||[];st.data=null;st.hora=null;$("durTxt").textContent=(st.cars.length>1?st.cars.length+" carros: reservamos cerca de "+dur()/60+" horas (2 horas por carro).":"O serviço leva cerca de 3 horas.");dias();show("s3")})
   .catch(function(){e.textContent="Não consegui carregar os horários. Verifique a internet e tente de novo.";e.classList.remove("hide")})
   .then(function(){b.disabled=false;b.textContent="Ver dias e horários"})};
 
 // 3. Dia e horário
 function iso(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
 function mins(h){var m=String(h).match(/(\d+):(\d+) (AM|PM)/);return m?((+m[1]%12)+(m[3]==="PM"?12:0))*60+(+m[2]):0}
-function livre(d,h){var s=mins(h),e=s+180,agora=new Date();
+// 1 carro ocupa 3 horas; com 2 ou mais carros, 2 horas cada.
+function dur(){var n=st.cars.length||1;return n>1?n*120:180}
+function livre(d,h){var s=mins(h),e=s+dur(),agora=new Date();
   if(d===iso(agora)&&s<agora.getHours()*60+agora.getMinutes()+120)return false;
   return!BUSY.some(function(b){return b.data===d&&s<b.fim&&b.ini<e})}
 function dias(){var h="",t=new Date();
@@ -231,9 +259,10 @@ function horas(){
   $("hours").querySelectorAll(".chip").forEach(function(c){c.onclick=function(){st.hora=c.dataset.h;$("n3").disabled=false;
     $("hours").querySelectorAll(".chip").forEach(function(x){x.classList.toggle("sel",x===c)})}})}
 function quando(){var p=st.data.split("-"),d=new Date(+p[0],+p[1]-1,+p[2]);return DIAS[d.getDay()]+", "+d.getDate()+" "+MESES[d.getMonth()]+" às "+st.hora}
-function valor(){return CFG.p[st.cat][st.serv==="full"?0:1]}
+function total(){return st.cars.reduce(function(t,c){return t+preco(c)},0)}
+function valor(){return total()}
 function resumo(){var v=valor();
-  return"<div><span>Carro</span><b>"+esc((st.marca+" "+st.modelo).trim())+"</b></div><div><span>Serviço</span><b>"+(st.serv==="full"?"Full Detail":"Interior Detail")+"</b></div>"+
+  return st.cars.map(function(c,i){return"<div><span>"+(st.cars.length>1?"Carro "+(i+1):"Carro")+"</span><b>"+esc(c.nome)+" · "+svc(c)+" · "+money(preco(c))+"</b></div>"}).join("")+
     "<div><span>Quando</span><b>"+quando()+"</b></div><div><span>Endereço</span><b>"+esc(st.end)+"</b></div>"+
     '<div class="tot"><span>Total</span><b>'+money(v)+"</b></div><div><span>Sinal para confirmar ("+CFG.dep+"%)</span><b>"+money(v*CFG.dep/100)+"</b></div>"}
 $("n3").onclick=function(){$("sum").innerHTML=resumo();$("e4").classList.add("hide");
@@ -242,11 +271,11 @@ $("n3").onclick=function(){$("sum").innerHTML=resumo();$("e4").classList.add("hi
 // 4. Enviar
 var ERROS={ocupado:"Esse horário acabou de ser ocupado. Escolha outro.",longe:"Esse dia não está mais disponível na sua região. Escolha outro.",limite:"Muitos pedidos agora. Tente de novo em alguns minutos ou fale no WhatsApp.",dados:"Confira seus dados e tente de novo.",horario:"Escolha o dia e o horário de novo."};
 $("send").onclick=function(){var b=this,e=$("e4");b.disabled=true;b.textContent="Enviando…";e.classList.add("hide");
-  call({action:"pub_book",b:{nome:st.nome,tel:st.tel,end:st.end,carro:(st.marca+" "+st.modelo).trim(),cat:st.cat,serv:st.serv,data:st.data,hora:st.hora,site:$("site").value}}).then(function(){
+  call({action:"pub_book",b:{nome:st.nome,tel:st.tel,end:st.end,cars:st.cars.map(function(c){return{carro:c.nome,cat:c.cat,serv:c.serv}}),data:st.data,hora:st.hora,site:$("site").value}}).then(function(){
     $("okTxt").textContent="Recebemos seu pedido, "+st.nome.split(" ")[0]+". Vamos confirmar pelo WhatsApp em breve.";
     $("sum2").innerHTML=resumo();
     $("okDep").textContent="Para garantir o horário, envie o sinal de "+money(valor()*CFG.dep/100)+(CFG.pagto?" por "+CFG.pagto:"")+".";
-    if(CFG.whats){var num=CFG.whats.length>10?CFG.whats:CFG.cc+CFG.whats,msg="Olá! Acabei de agendar pelo site: "+(st.serv==="full"?"Full Detail":"Interior Detail")+" no "+(st.marca+" "+st.modelo).trim()+", "+quando()+". Meu nome é "+st.nome+".";
+    if(CFG.whats){var num=CFG.whats.length>10?CFG.whats:CFG.cc+CFG.whats,msg="Olá! Acabei de agendar pelo site: "+st.cars.map(function(c){return svc(c)+" no "+c.nome}).join(" e ")+", "+quando()+". Meu nome é "+st.nome+".";
       $("waBtn").href="https://wa.me/"+num+"?text="+encodeURIComponent(msg);$("waBtn").classList.remove("hide")}
     show("s5")
   }).catch(function(x){e.textContent=ERROS[x.message]||"Não consegui enviar. Verifique a internet e tente de novo.";e.classList.remove("hide");

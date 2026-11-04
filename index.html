@@ -377,11 +377,13 @@ function buildDays(){var h="",t=new Date(),avisos=[];
     st.data=c.dataset.d;st.hora=null;$("n4").disabled=true;
     $("days").querySelectorAll(".chip").forEach(function(x){x.classList.toggle("sel",x===c)});buildHours()}})}
 $("ignDist").onchange=function(){buildDays();if(st.data)buildHours()};
-// Cada carro ocupa 3 horas. Um horário fica livre se não encosta em outro
+// Um horário fica livre se não encosta em outro
 // agendamento nem em compromisso do Google Agenda.
 function mins(h){var m=String(h).match(/(\d+):(\d+) (AM|PM)/);return m?((+m[1]%12)+(m[3]==="PM"?12:0))*60+(+m[2]):0}
-function livre(d,h,n){var s=mins(h),e=s+180*n;
-  return!appts.some(function(a){var as=mins(a.hora);return a.data===d&&s<as+180*(a.n||1)&&as<e})&&
+// 1 carro ocupa 3 horas; com 2 ou mais carros, 2 horas cada.
+function dur(n){n=+n||1;return n>1?n*120:180}
+function livre(d,h,n){var s=mins(h),e=s+dur(n);
+  return!appts.some(function(a){var as=mins(a.hora);return a.data===d&&s<as+dur(a.n)&&as<e})&&
     !busy.some(function(b){return b.data===d&&s<b.fim&&b.ini<e})}
 function buildHours(){
   var n=st.cars?st.cars.length:1;
@@ -421,7 +423,7 @@ $("novo").onclick=function(){st={};$("fb").classList.add("hide");["nome","tel","
 // Agenda
 function t24(h){var m=String(h).match(/(\d+):(\d+) (AM|PM)/);if(!m)return"090000";var H=(+m[1]%12)+(m[3]==="PM"?12:0);return("0"+H).slice(-2)+m[2]+"00"}
 function gcal(a){
-  var d=a.data.replace(/-/g,""),b=t24(a.hora),H=Math.min(+b.slice(0,2)+(a.n||1)*3,23),e=("0"+H).slice(-2)+b.slice(2,4)+"00";
+  var d=a.data.replace(/-/g,""),b=t24(a.hora),fm=Math.min(mins(a.hora)+dur(a.n),23*60+59),e=("0"+Math.floor(fm/60)).slice(-2)+("0"+fm%60).slice(-2)+"00";
   var det="Cliente: "+a.nome+"\nTelefone: "+a.tel+"\nCarro(s): "+a.carro+"\nServiço(s): "+a.serv+"\nTotal: "+money(a.valor)+(a.dep?"\nSinal: "+money(a.dep):"");
   return"https://calendar.google.com/calendar/render?action=TEMPLATE&text="+encodeURIComponent("Detail – "+a.nome+" ("+a.carro+")")+"&dates="+d+"T"+b+"/"+d+"T"+e+"&details="+encodeURIComponent(det)+"&location="+encodeURIComponent(a.end||"")}
 $("bAg").onclick=function(){renderAg();show("sAg");if(!gOn())$("syncNote").textContent="";gSync()};
@@ -477,7 +479,7 @@ try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}
 show(1);
 gSync();
 // Se o site tiver uma versão nova, abre ela (o celular guarda a página antiga por um tempo).
-var VERSAO="3";
+var VERSAO="4";
 try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
   if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 </script>

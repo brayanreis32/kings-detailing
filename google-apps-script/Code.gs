@@ -17,7 +17,10 @@ const CHAVE = 'TROQUE-ESTA-CHAVE';
 const NOME_AGENDA = 'Kings of Detailing';
 const NOME_PLANILHA = 'Kings of Detailing – Agenda';
 const FUSO = 'America/New_York';
-const HORAS_POR_CARRO = 3;
+const HORAS_UM_CARRO = 3;     // um carro sozinho
+const HORAS_CADA_CARRO = 2;   // cada carro quando o cliente tem 2 ou mais
+// Minutos que o agendamento ocupa na agenda.
+function duracaoMin(n) { n = Number(n) || 1; return n > 1 ? n * HORAS_CADA_CARRO * 60 : HORAS_UM_CARRO * 60; }
 const DIAS_A_FRENTE = 15;
 const COLS = ['id', 'data', 'hora', 'nome', 'tel', 'end', 'carro', 'serv', 'valor', 'dep', 'n', 'status', 'evento', 'criado', 'lat', 'lng', 'cidade'];
 
@@ -220,7 +223,7 @@ function inicio(a) {
 }
 
 function fim(a) {
-  return new Date(inicio(a).getTime() + (Number(a.n) || 1) * HORAS_POR_CARRO * 3600000);
+  return new Date(inicio(a).getTime() + duracaoMin(a.n) * 60000);
 }
 
 // Horários ocupados na agenda principal e compromissos colocados à mão na agenda da Kings.
@@ -473,7 +476,7 @@ function minutosHora(h) {
 function ocupadosPublicos() {
   const lista = listar().map(function (a) {
     const ini = minutosHora(a.hora);
-    return { data: a.data, ini: ini, fim: ini + HORAS_POR_CARRO * 60 * (Number(a.n) || 1) };
+    return { data: a.data, ini: ini, fim: ini + duracaoMin(a.n) };
   });
   return lista.concat(ocupados());
 }
@@ -504,9 +507,12 @@ function reservar(b) {
   const nome = String(b.nome || '').trim().slice(0, 60);
   const tel = String(b.tel || '').replace(/\D/g, '');
   const end = String(b.end || '').trim().slice(0, 200);
-  const carro = String(b.carro || '').trim().slice(0, 80);
-  const cat = Number(b.cat), serv = b.serv === 'int' ? 'int' : 'full';
-  if (nome.length < 2 || tel.length < 10 || tel.length > 11 || end.length < 5 || !carro || !(cat >= 0 && cat <= 3)) return { ok: false, erro: 'dados' };
+  // Até 4 carros por pedido. Páginas antigas mandam um carro só (carro/cat/serv).
+  const cars = (Array.isArray(b.cars) ? b.cars : [{ carro: b.carro, cat: b.cat, serv: b.serv }]).slice(0, 4).map(function (c) {
+    return { carro: String(c.carro || '').trim().slice(0, 80), cat: Number(c.cat), serv: c.serv === 'int' ? 'int' : 'full' };
+  });
+  if (nome.length < 2 || tel.length < 10 || tel.length > 11 || end.length < 5 || !cars.length ||
+    cars.some(function (c) { return !c.carro || !(c.cat >= 0 && c.cat <= 3); })) return { ok: false, erro: 'dados' };
   if (HORARIOS.indexOf(b.hora) < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(b.data)) return { ok: false, erro: 'horario' };
   const hoje = dia(new Date()), limite = dia(new Date(Date.now() + 14 * 86400000));
   if (b.data < hoje || b.data > limite) return { ok: false, erro: 'horario' };
@@ -516,19 +522,20 @@ function reservar(b) {
   if (n >= PEDIDOS_POR_HORA) return { ok: false, erro: 'limite' };
 
   // Confere de novo se o horário ainda está livre e se o dia não está longe demais.
-  const ini = minutosHora(b.hora), fim = ini + HORAS_POR_CARRO * 60;
+  const ini = minutosHora(b.hora), fim = ini + duracaoMin(cars.length);
   const ocupado = ocupadosPublicos().some(function (o) { return o.data === b.data && ini < o.fim && o.ini < fim; });
   if (ocupado) return { ok: false, erro: 'ocupado' };
   const g = geo(end);
   if (diasLonge(end, g).indexOf(b.data) > -1) return { ok: false, erro: 'longe' };
 
   const c = cfgPublica();
-  const valor = Number(c.p[cat][serv === 'full' ? 0 : 1]) || 0;
+  const valor = cars.reduce(function (t, x) { return t + (Number(c.p[x.cat][x.serv === 'full' ? 0 : 1]) || 0); }, 0);
   const a = {
     id: 'web' + Utilities.getUuid().replace(/-/g, '').slice(0, 10),
-    data: b.data, hora: b.hora, nome: nome, tel: tel, end: end, carro: carro,
-    serv: (serv === 'full' ? 'Full Detail' : 'Interior Detail') + ' (pelo site)',
-    valor: valor, dep: Math.round(valor * c.dep) / 100, n: 1, status: 'pendente'
+    data: b.data, hora: b.hora, nome: nome, tel: tel, end: end,
+    carro: cars.map(function (x) { return x.carro; }).join(' + '),
+    serv: cars.map(function (x) { return x.serv === 'full' ? 'Full Detail' : 'Interior Detail'; }).join(' + ') + ' (pelo site)',
+    valor: valor, dep: Math.round(valor * c.dep) / 100, n: cars.length, status: 'pendente'
   };
   if (g) { a.lat = g.lat; a.lng = g.lng; a.cidade = g.cidade; }
   adicionar(a);
