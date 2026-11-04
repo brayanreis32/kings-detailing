@@ -198,6 +198,15 @@ select:disabled{opacity:.5}
 <label for="depPct">Sinal para confirmar (%)</label><input id="depPct" inputmode="decimal">
 <label for="raio">Distância máxima entre clientes no mesmo dia (milhas, em linha reta; 0 = sem limite)</label><input id="raio" inputmode="decimal">
 <p class="note">Precisa do Google Agenda ligado, que é quem encontra os endereços no mapa.</p>
+<h2 style="margin-top:24px">Agendamento pelos clientes</h2>
+<label for="whats">Seu WhatsApp (o cliente fala com você por aqui)</label><input id="whats" type="tel" inputmode="tel" placeholder="(508) 555-0123">
+<label for="pagto">Como o cliente paga o sinal</label><input id="pagto" placeholder="Ex.: Zelle (508) 555-0123 ou Venmo @kingsdetailing">
+<div id="linkBox" class="hide" style="margin-top:14px">
+<label for="linkCli">Link para mandar aos clientes</label>
+<div style="display:flex;gap:8px"><input id="linkCli" readonly><button class="btn alt" id="linkCopy" style="width:auto;margin:0;white-space:nowrap">Copiar</button></div>
+<p class="note">O cliente vê só os horários livres e os preços. Nada da sua agenda, dos outros clientes ou do financeiro aparece para ele. Cada pedido entra na Agenda como Pendente e você recebe um e-mail.</p>
+</div>
+<p class="note" id="linkOff">Ligue o Google Agenda abaixo para gerar o link dos clientes.</p>
 <h2 style="margin-top:24px">Google Agenda</h2>
 <p class="note">Com o link do script e a chave secreta, a agenda e os preços ficam iguais em todos os aparelhos e cada agendamento entra sozinho no Google Agenda. Deixe em branco para usar só neste aparelho.</p>
 <label for="gUrl">Link do script (termina em /exec)</label><input id="gUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -430,12 +439,21 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;
 $("bSet").onclick=function(){
   $("setBox").innerHTML=CATS.map(function(c,i){return"<label>"+c+'</label><div class="grid"><input data-p="'+i+'0" inputmode="decimal" value="'+cfg.p[i][0]+'" aria-label="Full Detail '+c+'"><input data-p="'+i+'1" inputmode="decimal" value="'+cfg.p[i][1]+'" aria-label="Interior Detail '+c+'"></div>'}).join("")+'<p class="note">Esquerda: Full Detail · Direita: Interior Detail</p>';
   $("cc").value=cfg.cc;$("cur").value=cfg.cur;$("depPct").value=cfg.dep;$("raio").value=cfg.raio;
-  $("gUrl").value=G.url;$("gKey").value=G.key;$("gNote").textContent="";show("sSet")};
+  $("gUrl").value=G.url;$("gKey").value=G.key;$("gNote").textContent="";
+  $("whats").value=cfg.whats||"";$("pagto").value=cfg.pagto||"";linkCli();show("sSet")};
+// Link da página agendar.html: leva só o código do script, nunca a chave.
+function linkCli(){var m=String(G.url).match(/\/macros\/s\/([^/]+)\/exec/),ok=gOn()&&!!m;
+  $("linkBox").classList.toggle("hide",!ok);$("linkOff").classList.toggle("hide",ok);
+  if(ok)$("linkCli").value=location.href.replace(/[?#].*$/,"").replace(/[^/]*$/,"")+"agendar.html?s="+m[1]}
+$("linkCopy").onclick=function(){var b=this,t=$("linkCli");t.select();
+  function ok(){b.textContent="Copiado!";setTimeout(function(){b.textContent="Copiar"},2000)}
+  try{navigator.clipboard.writeText(t.value).then(ok,function(){document.execCommand("copy");ok()})}catch(e){try{document.execCommand("copy");ok()}catch(x){}}};
 $("saveSet").onclick=function(){
   var antes=JSON.stringify(cfg);
   document.querySelectorAll("[data-p]").forEach(function(i){var k=i.dataset.p;cfg.p[+k[0]][+k[1]]=parseFloat(String(i.value).replace(",","."))||0});
   cfg.cc=$("cc").value.replace(/\D/g,"")||"1";cfg.cur=$("cur").value||"$";
   cfg.dep=parseFloat(String($("depPct").value).replace(",","."))||15;
+  cfg.whats=$("whats").value.replace(/\D/g,"");cfg.pagto=$("pagto").value.trim();
   var ra=parseFloat(String($("raio").value).replace(",","."));cfg.raio=isNaN(ra)||ra<0?5:ra;save("kf_cfg_v3",cfg);
   var url=$("gUrl").value.trim(),key=$("gKey").value.trim(),novo=url!==G.url||key!==G.key;
   G={url:url,key:key};save("kf_google",G);
@@ -459,7 +477,7 @@ try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}
 show(1);
 gSync();
 // Se o site tiver uma versão nova, abre ela (o celular guarda a página antiga por um tempo).
-var VERSAO="2";
+var VERSAO="3";
 try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
   if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 </script>

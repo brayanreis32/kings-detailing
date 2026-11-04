@@ -28,7 +28,10 @@ function doGet() {
 function doPost(e) {
   let p;
   try { p = JSON.parse(e.postData.contents); } catch (err) { return saida({ ok: false, erro: 'json' }); }
-  if (CHAVE === 'TROQUE-ESTA-CHAVE' || p.key !== CHAVE) return saida({ ok: false, erro: 'chave' });
+  // As ações "pub_" são da página de agendamento dos clientes e não usam a chave:
+  // só mostram horários livres e preços, e só criam pedidos pendentes.
+  const publica = String(p.action || '').indexOf('pub_') === 0;
+  if (!publica && (CHAVE === 'TROQUE-ESTA-CHAVE' || p.key !== CHAVE)) return saida({ ok: false, erro: 'chave' });
 
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -40,6 +43,10 @@ function doPost(e) {
       case 'status': mudarStatus(p.id, p.status); break;
       case 'del': remover(p.id); break;
       case 'cfg': PropertiesService.getScriptProperties().setProperty('cfg', JSON.stringify(p.cfg)); break;
+      // Página de agendamento dos clientes
+      case 'pub_info': return saida({ ok: true, cfg: cfgPublica(), busy: ocupadosPublicos() });
+      case 'pub_dias': return saida({ ok: true, longe: diasLonge(p.end) });
+      case 'pub_book': return saida(reservar(p.b || {}));
       // Financeiro
       case 'fin_list': return saida({ ok: true, tx: finListar(), cfg: finCfg(), banco: finBancoInfo() });
       case 'fin_add': finAdicionar(p.txs); break;
@@ -434,4 +441,103 @@ function finPuxar() {
   props.setProperty('fin_contas', JSON.stringify(contas));
   props.setProperty('fin_erro', erros.join(' ').slice(0, 500));
   return { ok: true, novos: novos, banco: finBancoInfo() };
+}
+
+
+// ---------- Agendamento pelos clientes ----------
+// A página agendar.html chama estas funções. Elas nunca devolvem nome, telefone
+// ou endereço de outros clientes: só os horários ocupados.
+
+const PRECOS_PADRAO = [[200, 120], [300, 180], [330, 200], [380, 230]];
+const HORARIOS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM'];
+const PEDIDOS_POR_HORA = 20; // limite de pedidos pela página, contra abuso
+
+function cfgPublica() {
+  const c = lerCfg() || {};
+  return {
+    p: c.p && c.p.length === 4 ? c.p : PRECOS_PADRAO,
+    cur: c.cur || '$',
+    dep: Number(c.dep) || 15,
+    names: c.names || NOME_AGENDA,
+    cc: c.cc || '1',
+    whats: c.whats || '',
+    pagto: c.pagto || ''
+  };
+}
+
+function minutosHora(h) {
+  const m = String(h).match(/(\d+):(\d+) (AM|PM)/);
+  return m ? ((Number(m[1]) % 12) + (m[3] === 'PM' ? 12 : 0)) * 60 + Number(m[2]) : 0;
+}
+
+function ocupadosPublicos() {
+  const lista = listar().map(function (a) {
+    const ini = minutosHora(a.hora);
+    return { data: a.data, ini: ini, fim: ini + HORAS_POR_CARRO * 60 * (Number(a.n) || 1) };
+  });
+  return lista.concat(ocupados());
+}
+
+function distMilhas(p, q) {
+  const r = Math.PI / 180, a = Number(p.lat) * r, b = Number(q.lat) * r, dl = b - a, dn = (Number(q.lng) - Number(p.lng)) * r;
+  const x = Math.sin(dl / 2) * Math.sin(dl / 2) + Math.cos(a) * Math.cos(b) * Math.sin(dn / 2) * Math.sin(dn / 2);
+  return 7917.6 * Math.asin(Math.min(1, Math.sqrt(x)));
+}
+
+// Dias em que já tem cliente mais longe que o limite de milhas definido em Preços.
+function diasLonge(end, g) {
+  const c = lerCfg() || {};
+  const raio = c.raio === undefined ? 5 : Number(c.raio);
+  if (!(raio > 0)) return [];
+  g = g || geo(end);
+  if (!g) return [];
+  const dias = {};
+  listar().forEach(function (a) {
+    if (a.lat === '' || a.lat === undefined) return;
+    if (distMilhas(g, a) > raio) dias[a.data] = true;
+  });
+  return Object.keys(dias);
+}
+
+function reservar(b) {
+  if (b.site) return { ok: true }; // campo escondido preenchido: robô
+  const nome = String(b.nome || '').trim().slice(0, 60);
+  const tel = String(b.tel || '').replace(/\D/g, '');
+  const end = String(b.end || '').trim().slice(0, 200);
+  const carro = String(b.carro || '').trim().slice(0, 80);
+  const cat = Number(b.cat), serv = b.serv === 'int' ? 'int' : 'full';
+  if (nome.length < 2 || tel.length < 10 || tel.length > 11 || end.length < 5 || !carro || !(cat >= 0 && cat <= 3)) return { ok: false, erro: 'dados' };
+  if (HORARIOS.indexOf(b.hora) < 0 || !/^\d{4}-\d{2}-\d{2}$/.test(b.data)) return { ok: false, erro: 'horario' };
+  const hoje = dia(new Date()), limite = dia(new Date(Date.now() + 14 * 86400000));
+  if (b.data < hoje || b.data > limite) return { ok: false, erro: 'horario' };
+
+  const cache = CacheService.getScriptCache();
+  const n = Number(cache.get('pub_pedidos')) || 0;
+  if (n >= PEDIDOS_POR_HORA) return { ok: false, erro: 'limite' };
+
+  // Confere de novo se o horário ainda está livre e se o dia não está longe demais.
+  const ini = minutosHora(b.hora), fim = ini + HORAS_POR_CARRO * 60;
+  const ocupado = ocupadosPublicos().some(function (o) { return o.data === b.data && ini < o.fim && o.ini < fim; });
+  if (ocupado) return { ok: false, erro: 'ocupado' };
+  const g = geo(end);
+  if (diasLonge(end, g).indexOf(b.data) > -1) return { ok: false, erro: 'longe' };
+
+  const c = cfgPublica();
+  const valor = Number(c.p[cat][serv === 'full' ? 0 : 1]) || 0;
+  const a = {
+    id: 'web' + Utilities.getUuid().replace(/-/g, '').slice(0, 10),
+    data: b.data, hora: b.hora, nome: nome, tel: tel, end: end, carro: carro,
+    serv: (serv === 'full' ? 'Full Detail' : 'Interior Detail') + ' (pelo site)',
+    valor: valor, dep: Math.round(valor * c.dep) / 100, n: 1, status: 'pendente'
+  };
+  if (g) { a.lat = g.lat; a.lng = g.lng; a.cidade = g.cidade; }
+  adicionar(a);
+  cache.put('pub_pedidos', String(n + 1), 3600);
+
+  try {
+    MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Novo agendamento pelo site: ' + nome + ' – ' + b.data + ' ' + b.hora,
+      'Novo pedido de agendamento (pendente):\n\n' + descricao(a) + '\nEndereço: ' + end + '\nData: ' + b.data + ' às ' + b.hora +
+      '\n\nAbra a Agenda do sistema para confirmar ou recusar.');
+  } catch (err) { /* sem e-mail, o pedido continua salvo na agenda */ }
+  return { ok: true, valor: valor, dep: a.dep };
 }

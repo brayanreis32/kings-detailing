@@ -53,3 +53,16 @@ Os lançamentos ficam numa aba **Financeiro** da mesma planilha da agenda. Depoi
 atualizar o `Code.gs` para esta versão, faça uma **Nova versão** da implantação (passo
 acima) e autorize de novo: o Google vai pedir permissão para acessar serviços externos
 (o SimpleFIN) e para rodar o script sozinho de tempos em tempos.
+
+## Página de agendamento para clientes
+
+`agendar.html` é a página que você manda para o cliente. Ele escolhe o carro, o
+serviço, o dia e o horário (só aparecem os horários livres) e envia o pedido.
+O pedido entra na Agenda como **Pendente**, vira evento no Google Agenda e você
+recebe um e-mail. O cliente não vê nada da sua agenda, dos outros clientes nem
+do financeiro.
+
+O link fica em **Preços → Agendamento pelos clientes → Copiar** (aparece quando
+o Google Agenda está ligado). Ali também ficam o seu WhatsApp e como o cliente
+paga o sinal. Precisa do `Code.gs` atualizado (nova versão da implantação e
+autorizar o envio de e-mail).

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kings of Detailing – Agende seu detail</title>
+<meta name="description" content="Agende seu Full Detail ou Interior Detail com a Kings of Detailing.">
+<meta name="theme-color" content="#0b0d12">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<meta property="og:title" content="Kings of Detailing – Agende seu detail">
+<meta property="og:description" content="Escolha o serviço, o dia e o horário. Rápido e sem complicação.">
+<meta property="og:image" content="icon-512.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0d12;--card:#12161d;--card2:#161b23;--ink:#e8ebf0;--ink2:#c3c9d3;--mut:#8a92a1;--line:#1e242e;--line2:#2a313d;--gold:#3b82f6;--in:#34c38f;--out:#f07171;color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-feature-settings:"tnum" 1;-webkit-font-smoothing:antialiased}
+button{cursor:pointer}
+.wrap{max-width:600px;margin:0 auto;padding:calc(20px + env(safe-area-inset-top,0px)) 16px calc(40px + env(safe-area-inset-bottom,0px))}
+.hero{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+.hero img{width:64px;height:64px;border-radius:12px;background:#000;object-fit:cover}
+.hero h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.01em}
+.hero p{margin:2px 0 0;color:var(--mut);font-size:14px}
+.steps{display:flex;gap:6px;margin-bottom:16px}
+.steps i{flex:1;font-style:normal;font-size:12px;color:var(--mut);padding-top:8px;border-top:2px solid var(--line2)}
+.steps i.on{color:var(--ink);border-top-color:var(--gold)}
+section{display:none;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px 20px}
+section.show{display:block}
+h2{font-size:17px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+.sub{color:var(--mut);font-size:14px;margin:0 0 6px}
+label{display:block;font-size:13px;color:var(--mut);margin:16px 0 6px}
+input,select{width:100%;padding:12px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--ink);font:inherit}
+input:focus,select:focus,button:focus-visible{outline:2px solid #3b82f680;outline-offset:1px;border-color:var(--gold)}
+select:disabled{opacity:.5}
+.btn{display:block;width:100%;margin-top:20px;padding:13px 14px;border:0;border-radius:8px;background:var(--gold);color:#fff;font:600 15px Inter,system-ui,sans-serif;text-align:center;text-decoration:none}
+.btn:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.4;cursor:default;filter:none}
+.btn.alt{background:var(--card2);border:1px solid var(--line2);color:var(--ink);margin-top:8px}
+.btn.wa{background:#25d366;color:#04230f}
+.opt{display:block;width:100%;text-align:left;background:var(--bg);border:1px solid var(--line2);color:var(--ink);border-radius:10px;padding:14px 16px;margin-top:10px;font:inherit}
+.opt:hover{border-color:#3a4250}
+.opt.sel{border-color:var(--gold);background:#3b82f614}
+.opt b{font-size:15px;font-weight:600;display:block}
+.opt .p{float:right;font-size:18px;font-weight:600}
+.opt small{color:var(--mut);display:block;margin-top:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line2);background:var(--bg);color:var(--ink2);border-radius:8px;padding:9px 12px;font:inherit;font-size:14px;text-align:center}
+.chip:hover{border-color:#3a4250}
+.chip.sel{background:#3b82f61f;color:var(--ink);border-color:var(--gold)}
+.chip:disabled{opacity:.3;cursor:default;text-decoration:line-through}
+.chip.day{min-width:70px;line-height:1.3}
+.chip.day b{display:block;font-weight:600}
+.sum{border:1px solid var(--line);border-radius:10px;margin-top:14px}
+.sum div{display:flex;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:14px}
+.sum div:last-child{border-bottom:0}
+.sum span{color:var(--mut)}
+.sum b{font-weight:500;text-align:right}
+.sum .tot b{font-weight:600;font-size:16px}
+.note{font-size:13px;color:var(--mut)}
+.err{color:var(--out);font-size:14px;margin-top:12px}
+.hide{display:none!important}
+.ok-ic{width:52px;height:52px;border-radius:50%;background:#34c38f22;color:var(--in);display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:12px}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+.foot{text-align:center;color:var(--mut);font-size:12px;margin-top:22px}
+.load{color:var(--mut);font-size:14px;padding:12px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero"><img src="icon-192.png" alt="Kings of Detailing"><div><h1 id="nomeEmp">Kings of Detailing</h1><p>Agende seu detail em menos de 2 minutos</p></div></header>
+<div class="steps" id="steps"><i class="on">Serviço</i><i>Seus dados</i><i>Dia e horário</i><i>Confirmar</i></div>
+
+<section id="s1" class="show">
+  <h2>Qual é o seu carro?</h2>
+  <label for="marca">Marca</label><select id="marca"></select>
+  <label for="modelo">Modelo</label><select id="modelo" disabled></select>
+  <div id="outroBox" class="hide">
+    <label for="outroNome">Nome do modelo</label><input id="outroNome">
+    <label for="outroCat">Tamanho do carro</label><select id="outroCat"></select>
+  </div>
+  <div id="servBox" class="hide">
+    <label>Serviço</label>
+    <button class="opt" data-s="full"><span class="p" id="pFull"></span><b>Full Detail</b><small>Interior + exterior completo</small></button>
+    <button class="opt" data-s="int"><span class="p" id="pInt"></span><b>Interior Detail</b><small>Limpeza e higienização interna</small></button>
+  </div>
+  <p class="note" style="margin-top:12px">Mais de um carro? Faça um agendamento para cada um ou fale com a gente no WhatsApp.</p>
+  <button class="btn" id="n1" disabled>Continuar</button>
+</section>
+
+<section id="s2">
+  <h2>Seus dados</h2>
+  <p class="sub">Vamos até você. Usamos o endereço para ver os horários disponíveis na sua região.</p>
+  <label for="nome">Nome</label><input id="nome" autocomplete="name">
+  <label for="tel">Telefone (WhatsApp)</label><input id="tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="(508) 555-0123">
+  <label for="end">Endereço do serviço</label><input id="end" autocomplete="street-address" placeholder="Rua, número, cidade">
+  <div class="hp" aria-hidden="true"><label for="site">Não preencha</label><input id="site" tabindex="-1" autocomplete="off"></div>
+  <p class="err hide" id="e2"></p>
+  <button class="btn" id="n2">Ver dias e horários</button>
+  <button class="btn alt" data-back="1">Voltar</button>
+</section>
+
+<section id="s3">
+  <h2>Escolha o dia e o horário</h2>
+  <p class="sub">Cada serviço leva cerca de 3 horas.</p>
+  <label>Dia</label><div class="chips" id="days"></div>
+  <label>Horário</label><div class="chips" id="hours"><p class="note">Escolha um dia primeiro.</p></div>
+  <p class="err hide" id="e3"></p>
+  <button class="btn" id="n3" disabled>Revisar</button>
+  <button class="btn alt" data-back="2">Voltar</button>
+</section>
+
+<section id="s4">
+  <h2>Confira e confirme</h2>
+  <div class="sum" id="sum"></div>
+  <p class="note" id="depNote" style="margin-top:12px"></p>
+  <p class="err hide" id="e4"></p>
+  <button class="btn" id="send">Confirmar agendamento</button>
+  <button class="btn alt" data-back="3">Voltar</button>
+</section>
+
+<section id="s5">
+  <div class="ok-ic">✓</div>
+  <h2>Pedido enviado!</h2>
+  <p class="sub" id="okTxt"></p>
+  <div class="sum" id="sum2"></div>
+  <p class="note" id="okDep" style="margin-top:12px"></p>
+  <a class="btn wa hide" id="waBtn" target="_blank" rel="noopener">Falar no WhatsApp</a>
+</section>
+
+<section id="sErr">
+  <h2>Link inválido</h2>
+  <p class="sub" id="errTxt">Este link de agendamento não está completo. Peça o link novamente para a Kings of Detailing.</p>
+</section>
+
+<p class="foot">Kings of Detailing</p>
+</div>
+
+<script>
+var CATS=["Sedan / SUV até 5 lugares","SUV grande / caminhonete","Minivan (tipo Sienna)","Van de trabalho"];
+var M={
+"Toyota":[["Corolla",0],["Camry",0],["Prius",0],["RAV4",0],["Highlander",1],["4Runner",1],["Sequoia",1],["Tacoma",1],["Tundra",1],["Sienna",2]],
+"Honda":[["Civic",0],["Accord",0],["CR-V",0],["HR-V",0],["Passport",0],["Pilot",1],["Ridgeline",1],["Odyssey",2]],
+"Ford":[["Mustang",0],["Escape",0],["Edge",0],["Bronco",0],["Explorer",1],["Expedition",1],["Ranger",1],["Maverick",1],["F-150",1],["F-250",1],["Transit",3]],
+"Chevrolet":[["Malibu",0],["Camaro",0],["Corvette",0],["Equinox",0],["Blazer",0],["Traverse",1],["Tahoe",1],["Suburban",1],["Colorado",1],["Silverado 1500",1],["Silverado 2500",1],["Express (van)",3]],
+"Nissan":[["Sentra",0],["Altima",0],["Maxima",0],["Kicks",0],["Rogue",0],["Murano",0],["Pathfinder",1],["Armada",1],["Frontier",1],["Titan",1]],
+"Hyundai":[["Elantra",0],["Sonata",0],["Kona",0],["Tucson",0],["Santa Fe",0],["Palisade",1],["Santa Cruz",1]],
+"Kia":[["Forte",0],["K5",0],["Soul",0],["Sportage",0],["Sorento",0],["Telluride",1],["Carnival",2]],
+"Jeep":[["Renegade",0],["Compass",0],["Cherokee",0],["Grand Cherokee",0],["Wrangler",0],["Wagoneer",1],["Gladiator",1]],
+"Chrysler":[["300",0],["Pacifica",2],["Voyager",2]],
+"Dodge / RAM":[["Charger",0],["Challenger",0],["Durango",1],["RAM 1500",1],["RAM 2500",1],["RAM 3500",1],["Grand Caravan",2],["ProMaster (van)",3]],
+"GMC":[["Terrain",0],["Acadia",1],["Yukon",1],["Canyon",1],["Sierra 1500",1],["Sierra 2500",1],["Savana (van)",3]],
+"Volkswagen":[["Jetta",0],["Golf",0],["Passat",0],["Taos",0],["Tiguan",0],["Atlas",1]],
+"Subaru":[["Impreza",0],["Legacy",0],["WRX",0],["Crosstrek",0],["Forester",0],["Outback",0],["Ascent",1]],
+"Mazda":[["Mazda3",0],["Mazda6",0],["MX-5 Miata",0],["CX-30",0],["CX-5",0],["CX-50",0],["CX-9",1],["CX-90",1]],
+"BMW":[["Série 2",0],["Série 3",0],["Série 5",0],["Série 7",0],["X1",0],["X3",0],["X5",0],["X6",0],["X7",1]],
+"Mercedes-Benz":[["Classe A",0],["Classe C",0],["Classe E",0],["Classe S",0],["GLA",0],["GLC",0],["GLE",0],["GLS",1],["G-Wagon",1],["Sprinter (van)",3]],
+"Audi":[["A3",0],["A4",0],["A6",0],["Q3",0],["Q5",0],["Q8",0],["Q7",1]],
+"Lexus":[["IS",0],["ES",0],["NX",0],["RX",0],["GX",1],["LX",1]],
+"Tesla":[["Model 3",0],["Model S",0],["Model Y",0],["Model X",1],["Cybertruck",1]],
+"Cadillac":[["CT4",0],["CT5",0],["XT5",0],["XT6",1],["Escalade",1]],
+"Land Rover":[["Evoque",0],["Discovery",1],["Defender",1],["Range Rover",1]],
+"Porsche":[["718",0],["911",0],["Panamera",0],["Macan",0],["Cayenne",0]],
+"Outra marca":[]
+};
+var HS=["8:00 AM","9:00 AM","10:00 AM","11:00 AM","1:00 PM","2:00 PM","3:00 PM","4:00 PM","5:00 PM"];
+var DIAS=["dom","seg","ter","qua","qui","sex","sáb"],MESES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var CFG={p:[[200,120],[300,180],[330,200],[380,230]],cur:"$",dep:15,names:"Kings of Detailing",cc:"1",whats:"",pagto:""},BUSY=[],LONGE=[],st={};
+var SID=(location.search.match(/[?&]s=([\w-]+)/)||[])[1],URL_S=SID?"https://script.google.com/macros/s/"+SID+"/exec":"";
+function money(v){return CFG.cur+Number(v).toFixed(2)}
+function call(p){return fetch(URL_S,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p)}).then(function(r){return r.json()}).then(function(d){if(!d||!d.ok)throw new Error(d&&d.erro||"erro");return d})}
+function show(n){["s1","s2","s3","s4","s5","sErr"].forEach(function(i){$(i).classList.toggle("show",i===n)});
+  var k=+String(n).slice(1);[].forEach.call($("steps").children,function(e,i){e.classList.toggle("on",k>0&&k<5&&i<k)});
+  $("steps").classList.toggle("hide",n==="s5"||n==="sErr");window.scrollTo(0,0)}
+document.querySelectorAll("[data-back]").forEach(function(b){b.onclick=function(){show("s"+b.dataset.back)}});
+
+// 1. Carro e serviço
+var mk=$("marca");
+mk.innerHTML='<option value="">Selecione a marca</option>'+Object.keys(M).map(function(k){return"<option>"+esc(k)+"</option>"}).join("");
+$("outroCat").innerHTML=CATS.map(function(c,i){return'<option value="'+i+'">'+c+"</option>"}).join("");
+mk.onchange=function(){var md=$("modelo"),l=M[mk.value]||[];
+  md.disabled=!mk.value;
+  md.innerHTML='<option value="">Selecione o modelo</option>'+l.map(function(m,i){return'<option value="'+i+'">'+esc(m[0])+"</option>"}).join("")+'<option value="x">Outro modelo…</option>';
+  if(mk.value==="Outra marca"){md.value="x";md.disabled=true}
+  carro()};
+$("modelo").onchange=carro;$("outroNome").oninput=carro;$("outroCat").onchange=carro;
+function carro(){var v=$("modelo").value,outro=mk.value==="Outra marca"||v==="x";
+  $("outroBox").classList.toggle("hide",!outro);
+  if(!mk.value||(!outro&&v==="")||(outro&&!$("outroNome").value.trim())){st.cat=null}
+  else if(outro){st.modelo=$("outroNome").value.trim();st.cat=+$("outroCat").value}
+  else{var m=M[mk.value][+v];st.modelo=m[0];st.cat=m[1]}
+  st.marca=mk.value==="Outra marca"?"":mk.value;
+  var ok=st.cat!=null;$("servBox").classList.toggle("hide",!ok);
+  if(ok){$("pFull").textContent=money(CFG.p[st.cat][0]);$("pInt").textContent=money(CFG.p[st.cat][1])}
+  $("n1").disabled=!(ok&&st.serv)}
+document.querySelectorAll(".opt").forEach(function(o){o.onclick=function(){st.serv=o.dataset.s;
+  document.querySelectorAll(".opt").forEach(function(x){x.classList.toggle("sel",x===o)});carro()}});
+$("n1").onclick=function(){show("s2")};
+
+// 2. Dados
+$("n2").onclick=function(){var e=$("e2"),nome=$("nome").value.trim(),tel=$("tel").value.replace(/\D/g,""),end=$("end").value.trim();
+  if(tel.length===11&&tel[0]==="1")tel=tel.slice(1);
+  e.classList.add("hide");
+  if(nome.length<2){e.textContent="Digite seu nome.";e.classList.remove("hide");return}
+  if(tel.length!==10){e.textContent="Digite o telefone com DDD (10 números).";e.classList.remove("hide");return}
+  if(end.length<5){e.textContent="Digite o endereço completo, com cidade.";e.classList.remove("hide");return}
+  st.nome=nome;st.tel=tel;st.end=end;var b=this;b.disabled=true;b.textContent="Buscando horários…";
+  Promise.all([call({action:"pub_info"}),call({action:"pub_dias",end:end})]).then(function(r){CFG=r[0].cfg;BUSY=r[0].busy||[];LONGE=r[1].longe||[];st.data=null;st.hora=null;dias();show("s3")})
+  .catch(function(){e.textContent="Não consegui carregar os horários. Verifique a internet e tente de novo.";e.classList.remove("hide")})
+  .then(function(){b.disabled=false;b.textContent="Ver dias e horários"})};
+
+// 3. Dia e horário
+function iso(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
+function mins(h){var m=String(h).match(/(\d+):(\d+) (AM|PM)/);return m?((+m[1]%12)+(m[3]==="PM"?12:0))*60+(+m[2]):0}
+function livre(d,h){var s=mins(h),e=s+180,agora=new Date();
+  if(d===iso(agora)&&s<agora.getHours()*60+agora.getMinutes()+120)return false;
+  return!BUSY.some(function(b){return b.data===d&&s<b.fim&&b.ini<e})}
+function dias(){var h="",t=new Date();
+  for(var i=0;i<14;i++){var d=new Date(t.getFullYear(),t.getMonth(),t.getDate()+i),k=iso(d),ok=LONGE.indexOf(k)<0&&HS.some(function(x){return livre(k,x)});
+    h+='<button class="chip day'+(st.data===k?" sel":"")+'" data-d="'+k+'"'+(ok?"":" disabled")+">"+DIAS[d.getDay()]+"<b>"+d.getDate()+" "+MESES[d.getMonth()]+"</b></button>"}
+  $("days").innerHTML=h;
+  $("days").querySelectorAll(".chip").forEach(function(c){c.onclick=function(){st.data=c.dataset.d;st.hora=null;
+    $("days").querySelectorAll(".chip").forEach(function(x){x.classList.toggle("sel",x===c)});horas()}});
+  if(st.data)horas();else{$("hours").innerHTML='<p class="note">Escolha um dia primeiro.</p>';$("n3").disabled=true}}
+function horas(){
+  $("hours").innerHTML=HS.map(function(h){return'<button class="chip'+(h===st.hora?" sel":"")+'" data-h="'+h+'"'+(livre(st.data,h)?"":" disabled")+">"+h+"</button>"}).join("");
+  $("n3").disabled=!st.hora;
+  $("hours").querySelectorAll(".chip").forEach(function(c){c.onclick=function(){st.hora=c.dataset.h;$("n3").disabled=false;
+    $("hours").querySelectorAll(".chip").forEach(function(x){x.classList.toggle("sel",x===c)})}})}
+function quando(){var p=st.data.split("-"),d=new Date(+p[0],+p[1]-1,+p[2]);return DIAS[d.getDay()]+", "+d.getDate()+" "+MESES[d.getMonth()]+" às "+st.hora}
+function valor(){return CFG.p[st.cat][st.serv==="full"?0:1]}
+function resumo(){var v=valor();
+  return"<div><span>Carro</span><b>"+esc((st.marca+" "+st.modelo).trim())+"</b></div><div><span>Serviço</span><b>"+(st.serv==="full"?"Full Detail":"Interior Detail")+"</b></div>"+
+    "<div><span>Quando</span><b>"+quando()+"</b></div><div><span>Endereço</span><b>"+esc(st.end)+"</b></div>"+
+    '<div class="tot"><span>Total</span><b>'+money(v)+"</b></div><div><span>Sinal para confirmar ("+CFG.dep+"%)</span><b>"+money(v*CFG.dep/100)+"</b></div>"}
+$("n3").onclick=function(){$("sum").innerHTML=resumo();$("e4").classList.add("hide");
+  $("depNote").textContent="O agendamento fica confirmado depois do pagamento do sinal"+(CFG.pagto?" ("+CFG.pagto+")":"")+". A Kings of Detailing vai falar com você pelo WhatsApp.";show("s4")};
+
+// 4. Enviar
+var ERROS={ocupado:"Esse horário acabou de ser ocupado. Escolha outro.",longe:"Esse dia não está mais disponível na sua região. Escolha outro.",limite:"Muitos pedidos agora. Tente de novo em alguns minutos ou fale no WhatsApp.",dados:"Confira seus dados e tente de novo.",horario:"Escolha o dia e o horário de novo."};
+$("send").onclick=function(){var b=this,e=$("e4");b.disabled=true;b.textContent="Enviando…";e.classList.add("hide");
+  call({action:"pub_book",b:{nome:st.nome,tel:st.tel,end:st.end,carro:(st.marca+" "+st.modelo).trim(),cat:st.cat,serv:st.serv,data:st.data,hora:st.hora,site:$("site").value}}).then(function(){
+    $("okTxt").textContent="Recebemos seu pedido, "+st.nome.split(" ")[0]+". Vamos confirmar pelo WhatsApp em breve.";
+    $("sum2").innerHTML=resumo();
+    $("okDep").textContent="Para garantir o horário, envie o sinal de "+money(valor()*CFG.dep/100)+(CFG.pagto?" por "+CFG.pagto:"")+".";
+    if(CFG.whats){var num=CFG.whats.length>10?CFG.whats:CFG.cc+CFG.whats,msg="Olá! Acabei de agendar pelo site: "+(st.serv==="full"?"Full Detail":"Interior Detail")+" no "+(st.marca+" "+st.modelo).trim()+", "+quando()+". Meu nome é "+st.nome+".";
+      $("waBtn").href="https://wa.me/"+num+"?text="+encodeURIComponent(msg);$("waBtn").classList.remove("hide")}
+    show("s5")
+  }).catch(function(x){e.textContent=ERROS[x.message]||"Não consegui enviar. Verifique a internet e tente de novo.";e.classList.remove("hide");
+    if(x.message==="ocupado"||x.message==="longe"){call({action:"pub_info"}).then(function(d){BUSY=d.busy||[];if(x.message==="longe")LONGE.push(st.data);st.hora=null;if(x.message==="longe")st.data=null;dias()}).catch(function(){});setTimeout(function(){show("s3");$("e3").textContent=e.textContent;$("e3").classList.remove("hide")},1200)}
+  }).then(function(){b.disabled=false;b.textContent="Confirmar agendamento"})};
+
+// Início
+if(!SID){show("sErr")}
+else{call({action:"pub_info"}).then(function(d){CFG=d.cfg;BUSY=d.busy||[];if(CFG.names)$("nomeEmp").textContent=CFG.names;carro()})
+  .catch(function(e){if(e.message==="chave"){$("errTxt").textContent="A página de agendamento ainda não está ativada. Fale com a Kings of Detailing pelo WhatsApp.";show("sErr")}})}
+</script>
+</body>
+</html>
