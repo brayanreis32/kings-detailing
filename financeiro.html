@@ -187,7 +187,7 @@ ol.steps{padding-left:20px;font-size:14px;color:var(--ag);margin:8px 0}ol.steps 
     <select id="fConta" aria-label="Forma de pagamento"></select>
     <select id="fCat" aria-label="Categoria" style="grid-column:1/-1"></select>
   </div>
-  <div class="ftot" id="fTot"></div>
+  <div class="head" style="margin-bottom:6px"><div class="ftot" id="fTot" style="margin:0"></div><button class="sm" id="expLista">⬇ Exportar esta lista</button></div>
   <div id="lista"></div>
 </div>
 
@@ -254,8 +254,13 @@ ol.steps{padding-left:20px;font-size:14px;color:var(--ag);margin:8px 0}ol.steps 
     <button class="btn alt" id="nrApply">Aplicar regras nos "A classificar"</button>
   </div>
   <div class="card">
-    <h2>Backup e exportar</h2>
-    <button class="btn alt" id="expCsv">Baixar planilha do período (.csv)</button>
+    <h2>Exportar planilhas</h2>
+    <p class="note">Abre no Excel, Numbers ou Planilhas Google. No iPhone, escolha "Salvar em Arquivos", mande pelo WhatsApp ou e-mail.</p>
+    <label for="expPer">Quais datas</label>
+    <select id="expPer"><option value="per">Período escolhido lá em cima</option><option value="tudo">Tudo do sistema (todas as datas)</option></select>
+    <div class="row2" style="margin-top:4px"><button class="btn alt" data-exp="in">Entradas</button><button class="btn alt" data-exp="out">Saídas</button></div>
+    <div class="row2"><button class="btn alt" data-exp="">Tudo</button><button class="btn alt" data-exp="cat">Resumo por categoria</button></div>
+    <h2 style="margin-top:22px">Backup</h2>
     <button class="btn alt" id="expJson">Baixar backup completo</button>
     <label for="impJson">Restaurar backup</label><input id="impJson" type="file" accept=".json,application/json">
     <p class="note" id="bkpNote"></p>
@@ -474,14 +479,17 @@ function fillSel(){
   $("impConta").innerHTML=CONTAS.filter(function(c){return c[0]!=="cash"&&c[0]!=="cheque"}).map(function(c){return'<option value="'+c[0]+'">'+c[1]+"</option>"}).join("");
 }
 ["fBusca","fTipo","fConta","fCat"].forEach(function(id){$(id).oninput=$(id).onchange=function(){F={busca:$("fBusca").value,tipo:$("fTipo").value,conta:$("fConta").value,cat:$("fCat").value};renderLan()}});
-function renderLan(){
-  $("fBusca").value=F.busca;$("fTipo").value=F.tipo;$("fConta").value=F.conta;$("fCat").value=F.cat;
-  var q=F.busca.trim().toLowerCase(),list=TX.filter(function(t){if(!inPer(t))return false;
+function filtrados(){
+  var q=F.busca.trim().toLowerCase();return TX.filter(function(t){if(!inPer(t))return false;
     if(F.tipo==="nc"){if(cat(t.cat)!==NC)return false}else if(F.tipo&&tipo(t)!==F.tipo)return false;
     if(F.conta&&t.conta!==F.conta)return false;
     if(F.cat&&(F.cat==="nc"?cat(t.cat)!==NC:t.cat!==F.cat))return false;
     if(q&&(t.desc+" "+t.nota+" "+t.nchk+" "+cat(t.cat).nome+" "+contaNome(t.conta)+" "+t.valor).toLowerCase().indexOf(q)<0)return false;return true})
     .sort(function(a,b){return a.data<b.data?1:a.data>b.data?-1:(b.criado||"")<(a.criado||"")?-1:1});
+}
+function renderLan(){
+  $("fBusca").value=F.busca;$("fTipo").value=F.tipo;$("fConta").value=F.conta;$("fCat").value=F.cat;
+  var list=filtrados();
   var T=totais(list);
   $("fTot").textContent=list.length+" lançamento(s) · Entrou "+money(T.e)+" · Saiu "+money(T.s);
   if(!list.length){$("lista").innerHTML='<div class="empty">Nenhum lançamento encontrado em '+esc(perLbl())+'.<br>Toque no <b>+</b> para lançar cash, cheque ou qualquer gasto.</div>';return}
@@ -638,11 +646,36 @@ $("nrAdd").onclick=function(){var k=$("nrK").value.trim().toLowerCase();if(!k)re
 $("nrApply").onclick=function(){var n=aplicarRegras(true);saveAll();toast(n?n+" lançamento(s) classificado(s).":"Nenhum lançamento bateu com as regras.")};
 $("gSave").onclick=function(){var url=$("gUrl").value.replace(/\s+/g,""),key=$("gKey").value.trim(),novo=url!==G.url||key!==G.key;G={url:url,key:key};save("kf_google",G);
   if(gOn()&&novo){enviarTudo();fSync()}else if(!gOn())setSync("off");toast("Salvo.")};
-function baixar(nome,txt,tipo){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([txt],{type:tipo}));a.download=nome;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}
-$("expCsv").onclick=function(){var l=TX.filter(function(t){return inPer(t)}).sort(function(a,b){return a.data<b.data?-1:1});
-  function c(s){s=String(s==null?"":s);return/[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
-  var t="Data,Tipo,Categoria,Forma,Cheque,Descricao,Observacao,Valor\n"+l.map(function(x){var tp=tipo(x);return[x.data,tp==="in"?"Entrada":tp==="out"?"Saida":"Transferencia",cat(x.cat).nome,contaNome(x.conta),x.nchk,x.desc,x.nota,x.valor.toFixed(2)].map(c).join(",")}).join("\n");
-  baixar("financeiro-"+perLbl().replace(/\s+/g,"-")+".csv",t,"text/csv")};
+// No iPhone abre a tela de compartilhar (Salvar em Arquivos, WhatsApp, e-mail); no computador baixa direto.
+function baixar(nome,txt,tipo){var blob=new Blob([txt],{type:tipo});
+  try{var f=new File([blob],nome,{type:tipo});if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f],title:nome}).catch(function(){});return}}catch(e){}
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=nome;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},500)}
+function cel(s){s=String(s==null?"":s);return/[",\n;]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
+function csvTxt(rows){return"﻿"+rows.map(function(r){return r.map(cel).join(",")}).join("\r\n")}
+function nomeArq(base,todas){return"kings-"+base+"-"+(todas?"tudo":perLbl().replace(/\s+/g,"-").toLowerCase())+".csv"}
+function planLanc(list,base,todas){
+  list=list.slice().sort(function(a,b){return a.data<b.data?-1:a.data>b.data?1:0});
+  var rows=[["Data","Tipo","Categoria","Forma de pagamento","Nº cheque","Descrição","Observação","Entrada","Saída","Valor (+ entrou / − saiu)","Origem"]],T=totais(list);
+  list.forEach(function(x){var tp=tipo(x),v=Math.abs(x.valor),e=tp==="in"?efeito(x):"",sd=tp==="out"?efeito(x):"";
+    rows.push([br(x.data),tp==="in"?"Entrada":tp==="out"?"Saída":"Transferência",cat(x.cat).nome,contaNome(x.conta),x.nchk,x.desc,x.nota,
+      e===""?"":e.toFixed(2),sd===""?"":sd.toFixed(2),x.valor.toFixed(2),x.origem==="banco"?"Banco automático":x.origem==="csv"?"Extrato":"Manual"]);
+  });
+  rows.push([]);rows.push(["","","","","","Total","",T.e.toFixed(2),T.s.toFixed(2)]);if(base!=="entradas"&&base!=="saidas")rows.push(["","","","","","Sobrou","",(T.e-T.s).toFixed(2)]);
+  baixar(nomeArq(base,todas),csvTxt(rows),"text/csv")}
+function planCat(list,todas){var m={};
+  list.forEach(function(x){var tp=tipo(x);if(tp==="tr")return;var k=tp+"|"+cat(x.cat).nome;m[k]=m[k]||{tp:tp,nome:cat(x.cat).nome,v:0,n:0};m[k].v+=efeito(x);m[k].n++});
+  var T=totais(list),rows=[["Tipo","Categoria","Total","% do tipo","Lançamentos"]];
+  ["in","out"].forEach(function(tp){Object.keys(m).map(function(k){return m[k]}).filter(function(g){return g.tp===tp}).sort(function(a,b){return b.v-a.v}).forEach(function(g){var tot=tp==="in"?T.e:T.s;
+    rows.push([tp==="in"?"Entrada":"Saída",g.nome,g.v.toFixed(2),tot?Math.round(g.v/tot*1000)/10+"%":"",g.n])})});
+  rows.push([]);rows.push(["","Total entrou",T.e.toFixed(2)]);rows.push(["","Total saiu",T.s.toFixed(2)]);rows.push(["","Sobrou",(T.e-T.s).toFixed(2)]);
+  baixar(nomeArq("resumo-categorias",todas),csvTxt(rows),"text/csv")}
+document.querySelectorAll("[data-exp]").forEach(function(b){b.onclick=function(){var todas=$("expPer").value==="tudo",k=b.dataset.exp,
+  list=TX.filter(function(t){return todas||inPer(t)});
+  if(k==="cat"){planCat(list,todas);return}
+  if(k)list=list.filter(function(t){return tipo(t)===k});
+  if(!list.length){toast("Nenhum lançamento para exportar.");return}
+  planLanc(list,k==="in"?"entradas":k==="out"?"saidas":"lancamentos",todas)}});
+$("expLista").onclick=function(){var l=filtrados();if(!l.length){toast("A lista está vazia.");return}planLanc(l,F.tipo==="in"?"entradas":F.tipo==="out"?"saidas":"lista",false)};
 $("expJson").onclick=function(){baixar("financeiro-backup-"+iso(new Date())+".json",JSON.stringify({tx:TX,cfg:CFG}),"application/json");$("bkpNote").textContent="Backup baixado. Guarde no Drive ou no e-mail."};
 $("impJson").onchange=function(){var f=this.files[0],inp=this;if(!f)return;var rd=new FileReader();rd.onload=function(){
   try{var d=JSON.parse(rd.result);if(!Array.isArray(d.tx))throw 0;var ids={};TX.forEach(function(t){ids[t.id]=1});var add=d.tx.filter(function(t){return t&&t.id&&!ids[t.id]});
@@ -688,6 +721,10 @@ function fSync(){
   }).then(function(){fsyncing=false;render();if(ok&&FQ.length)return fSync()})}
 
 fillSel();render();
+// Se o site tiver uma versão nova, abre ela (o iPhone guarda a página antiga por um tempo).
+var VERSAO="6";
+try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
+  if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 var rsz;window.addEventListener("resize",function(){clearTimeout(rsz);rsz=setTimeout(function(){if(UI.tab==="res")bars()},150)});
 if(gOn()){enviarTudo();fSync().then(function(){
   // Busca o banco ao abrir se a última busca tem mais de 6 horas (o script também busca sozinho).
