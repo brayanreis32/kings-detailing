@@ -257,6 +257,7 @@ ol.steps{padding-left:20px;font-size:13px;color:var(--ink2);margin:10px 0}ol.ste
     <button class="kpi" data-k="out"><small>Saiu</small><b id="kOut"></b><em id="kOutD"></em></button>
     <button class="kpi" data-k=""><small>Sobrou</small><b id="kBal"></b><em id="kBalD"></em></button>
     <button class="kpi hide" id="bankRes"></button>
+    <button class="kpi" id="cashRes"><small>Cash na mão</small><b id="kCash"></b><em id="kCashD"></em></button>
   </div>
   <div class="alert hide" id="ncAlert"><span id="ncTxt"></span><button class="sm go" id="ncGo">Classificar</button></div>
 
@@ -302,6 +303,13 @@ ol.steps{padding-left:20px;font-size:13px;color:var(--ink2);margin:10px 0}ol.ste
 
 <!-- CONTAS -->
 <div class="pane" id="p-con"><div class="cols">
+  <div class="card" id="cashCard">
+    <div class="head"><h2>Cash na mão</h2><button class="sm" id="cashVer">Ver movimentos em cash</button></div>
+    <div id="cashInfo"></div>
+    <label for="cashVal">Quanto você tem em cash agora?</label>
+    <div style="display:flex;gap:8px"><input id="cashVal" inputmode="decimal" placeholder="$0.00"><button class="sm go" id="cashSet">Salvar</button></div>
+    <p class="note">A partir daqui o sistema soma o que entra em cash, tira o que você gasta em cash e soma os saques no caixa eletrônico do banco. Conte o dinheiro e ajuste de vez em quando.</p>
+  </div>
   <div class="card"><h2>Formas de pagamento no período</h2><div id="contas"></div></div>
 
   <div class="card">
@@ -389,7 +397,8 @@ ol.steps{padding-left:20px;font-size:13px;color:var(--ink2);margin:10px 0}ol.ste
     <div><label for="fData">Data</label><input id="fData" type="date"></div>
     <div id="fChkBox" class="hide"><label for="fChk">Nº do cheque</label><input id="fChk" inputmode="numeric"></div>
   </div>
-  <label>Forma de pagamento</label><div class="chips" id="fContas"></div>
+  <label id="fContasL">Forma de pagamento</label><div class="chips" id="fContas"></div>
+  <div id="fParaBox" class="hide"><label>Para onde foi o dinheiro</label><div class="chips" id="fPara"></div></div>
   <div id="fCatBox"><label>Categoria</label><div class="chips" id="fCats"></div></div>
   <label for="fDesc">Descrição</label><input id="fDesc" placeholder="Ex.: Cliente João – Full Detail">
   <label for="fNota">Observação</label><input id="fNota">
@@ -503,7 +512,7 @@ function renderRes(){
   ["segOut","segIn"].forEach(function(id,i){var v=i?UI.gIn:UI.gOut;document.querySelectorAll("#"+id+" button").forEach(function(b){b.classList.toggle("on",b.dataset.v===v)})});
   donut("dnOut",grupos(list,"out",UI.gOut),"Saiu",UI.gOut,"out");
   donut("dnIn",grupos(list,"in",UI.gIn),"Entrou",UI.gIn,"in");
-  bars();renderBankRes();
+  bars();renderBankRes();renderCash();
   var rec=list.slice().sort(function(a,b){return a.data<b.data?1:a.data>b.data?-1:0}).slice(0,6);
   $("recentes").innerHTML=rec.length?'<div class="table" style="margin:0 -20px -18px">'+rec.map(txRow).join("")+"</div>":'<div class="empty">Nenhum lançamento neste período.</div>';ligarTx($("recentes"));
   var gs=list.filter(function(t){return tipo(t)==="out"&&efeito(t)>0}).sort(function(a,b){return efeito(b)-efeito(a)}).slice(0,5);
@@ -515,6 +524,30 @@ $("bankRes").onclick=function(){UI.tab="con";render();window.scrollTo(0,0)};
 // Saldo disponível = o que o banco informa; se não vier, saldo menos as compras pendentes.
 function dispConta(a){return a.disp!=null?a.disp:a.pend?a.saldo+a.pend:a.saldo}
 function quandoBanco(a){return a.data?new Date(a.data*1000).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}):""}
+// ---------- Cash na mão ----------
+// CFG.cash = {valor, data, ts}: quanto você disse que tinha e quando. Depois disso
+// soma tudo que mexe no cash: entradas/saídas em cash, transferências de/para cash
+// e saques de caixa eletrônico que vêm do banco.
+// Transferência manual guarda o destino em contaNome como "para:<conta>" (a planilha não tem outra coluna para isso).
+function paraDe(t){return t.para||(/^para:/.test(t.contaNome||"")?t.contaNome.slice(5):"")}
+function saqueATM(t){return t.conta!=="cash"&&t.valor<0&&tipo(t)==="tr"&&/withdrwl|atm withdrawal|atm wd|atm cash/i.test(t.desc||"")}
+function movCash(t){if(t.conta==="cash")return t.valor;if(paraDe(t)==="cash"||saqueATM(t))return Math.abs(t.valor);return 0}
+function depoisDoAjuste(t,b){return t.data>b.data||(t.data===b.data&&(t.criado||"")>b.ts)}
+function cashInfo(){var b=CFG.cash;if(!b)return null;var e=0,sd=0;
+  TX.forEach(function(t){if(!depoisDoAjuste(t,b))return;var m=movCash(t);if(m>0)e+=m;else sd-=m});
+  return{saldo:b.valor+e-sd,entrou:e,saiu:sd,base:b}}
+function renderCash(){var c=cashInfo(),list=TX.filter(function(t){return inPer(t)&&t.conta==="cash"}),gasto=0;
+  list.forEach(function(t){if(tipo(t)==="out")gasto+=efeito(t)});
+  $("kCash").textContent=c?money(c.saldo):"—";$("kCash").className=c&&c.saldo<0?"bad":"";
+  $("kCashD").textContent=c?"Gasto em cash no período: "+money(gasto):"Toque para dizer quanto tem";
+  $("cashInfo").innerHTML=c?'<div class="acc"><div><b style="font-size:24px;font-weight:600">'+money(c.saldo)+'</b><small>Você informou '+money(c.base.valor)+" em "+br(c.base.data)+"</small></div>"+
+    '<div style="text-align:right"><span class="ok">+'+money(c.entrou)+'</span><small>−'+money(c.saiu)+" desde então</small></div></div>"+
+    '<div class="acc"><div>Gasto em cash em '+esc(perLbl())+'</div><b>'+money(gasto)+"</b></div>":
+    '<p class="note">Ainda não sabemos quanto você tem. Conte o dinheiro e digite abaixo.</p>'}
+$("cashRes").onclick=function(){UI.tab="con";render();window.scrollTo(0,0);if(!CFG.cash)setTimeout(function(){$("cashVal").focus()},50)};
+$("cashVer").onclick=function(){F={busca:"",tipo:"",cat:"",conta:"cash"};UI.tab="lan";render();window.scrollTo(0,0)};
+$("cashSet").onclick=function(){var v=num($("cashVal").value);if(!$("cashVal").value.trim()){toast("Digite quanto você tem em cash.");return}
+  CFG.cash={valor:Math.round(v*100)/100,data:iso(new Date()),ts:new Date().toISOString()};$("cashVal").value="";cfgMudou();render();toast("Cash atualizado: "+money(CFG.cash.valor))};
 function renderBankRes(){var cs=BANCO.on?(BANCO.contas||[]):[],el=$("bankRes");el.classList.toggle("hide",!cs.length);if(!cs.length)return;
   var tot=cs.reduce(function(t,a){return t+dispConta(a)},0),dt=Math.min.apply(null,cs.map(function(a){return a.data||Infinity})),velho=dt!==Infinity&&Date.now()-dt*1000>36*36e5;
   el.innerHTML='<small>No banco agora</small><b>'+money(tot)+'</b><em class="'+(velho?"old":"")+'">'+(dt!==Infinity?(velho?"Atrasado · ":"Atualizado ")+quandoBanco({data:dt}):"Disponível")+"</em>"}
@@ -599,7 +632,7 @@ function txRow(t){
   if(tp==="in"&&t.valor<0)v="−"+money(-t.valor);if(tp==="out"&&t.valor>0)v="+"+money(t.valor);
   var tags=(c===NC?'<span class="tag w">classificar</span>':"")+(t.origem==="banco"?'<span class="tag">banco</span>':t.origem==="csv"?'<span class="tag">extrato</span>':"");
   return'<button class="tx" data-id="'+esc(t.id)+'"><span class="ic" style="background:'+corCat(c)+'">'+esc(c.nome.charAt(0))+'</span><span class="d"><b>'+esc(t.desc||c.nome)+tags+"</b><small>"+esc(c.nome)+" · "+esc(contaNome(t.conta))+(t.nchk?" #"+esc(t.nchk):"")+"</small></span>"+
-    '<span class="cc"><i class="sw" style="background:'+corCat(c)+'"></i>'+esc(c.nome)+'</span><span class="cc">'+esc(contaNome(t.conta))+(t.nchk?" #"+esc(t.nchk):"")+'</span><span class="v '+(tp==="in"?"in":tp==="tr"?"tr":"")+'">'+v+"</span></button>"}
+    '<span class="cc"><i class="sw" style="background:'+corCat(c)+'"></i>'+esc(c.nome)+'</span><span class="cc">'+esc(contaNome(t.conta))+(paraDe(t)?" → "+esc(contaNome(paraDe(t))):"")+(t.nchk?" #"+esc(t.nchk):"")+'</span><span class="v '+(tp==="in"?"in":tp==="tr"?"tr":"")+'">'+v+"</span></button>"}
 function ligarTx(el){el.querySelectorAll(".tx").forEach(function(b){b.onclick=function(){abrirForm(TX.find(function(t){return t.id===b.dataset.id}))}})}
 function filtrados(){
   var q=F.busca.trim().toLowerCase();return TX.filter(function(t){if(!inPer(t))return false;
@@ -630,7 +663,7 @@ var ED=null,FS={};
 $("fab").onclick=function(){abrirForm(null)};
 function abrirForm(t){
   ED=t||null;var auto=t&&(t.origem==="banco"||t.origem==="csv");
-  FS=t?{tipo:tipo(t)==="tr"?"tr":(cat(t.cat)===NC?(t.valor>=0?"in":"out"):tipo(t)),conta:t.conta,cat:t.cat}:{tipo:"out",conta:"cash",cat:""};
+  FS=t?{tipo:tipo(t)==="tr"?"tr":(cat(t.cat)===NC?(t.valor>=0?"in":"out"):tipo(t)),conta:t.conta,cat:t.cat,para:paraDe(t)}:{tipo:"out",conta:"cash",cat:"",para:""};
   $("fT").textContent=t?"Editar lançamento":"Novo lançamento";
   $("fValor").value=t?Math.abs(t.valor).toFixed(2):"";$("fData").value=t?t.data:iso(new Date());
   $("fChk").value=t&&t.nchk||"";$("fDesc").value=t&&t.desc||"";$("fNota").value=t&&t.nota||"";
@@ -648,6 +681,10 @@ function fForm(){
   $("fContas").innerHTML=CONTAS.map(function(c){return'<button type="button" class="chip'+(FS.conta===c[0]?" sel":"")+'" data-v="'+c[0]+'"'+(auto?" disabled":"")+">"+c[1]+"</button>"}).join("");
   $("fContas").querySelectorAll("button").forEach(function(b){b.onclick=function(){FS.conta=b.dataset.v;fForm()}});
   $("fChkBox").classList.toggle("hide",FS.conta!=="cheque");
+  var tr=FS.tipo==="tr";$("fContasL").textContent=tr?"De onde saiu o dinheiro":"Forma de pagamento";$("fParaBox").classList.toggle("hide",!tr);
+  if(tr){if(FS.para===FS.conta)FS.para="";
+    $("fPara").innerHTML=CONTAS.filter(function(c){return c[0]!==FS.conta}).map(function(c){return'<button type="button" class="chip'+(FS.para===c[0]?" sel":"")+'" data-v="'+c[0]+'">'+c[1]+"</button>"}).join("");
+    $("fPara").querySelectorAll("button").forEach(function(b){b.onclick=function(){FS.para=b.dataset.v;fForm()}})}
   $("fCatBox").classList.toggle("hide",FS.tipo==="tr");
   $("fCats").innerHTML=CFG.cats.filter(function(c){return c.tipo===FS.tipo}).map(function(c){return'<button type="button" class="chip'+(FS.cat===c.id?" sel":"")+'" data-v="'+c.id+'"><i style="background:'+corCat(c)+'"></i>'+esc(c.nome)+"</button>"}).join("");
   $("fCats").querySelectorAll("button").forEach(function(b){b.onclick=function(){FS.cat=b.dataset.v;fForm()}});
@@ -660,9 +697,11 @@ $("fSave").onclick=function(){
   var v=Math.abs(num($("fValor").value));if(!v){$("fValor").focus();toast("Digite o valor.");return}
   if(!$("fData").value){toast("Escolha a data.");return}
   if(FS.tipo!=="tr"&&!FS.cat){toast("Escolha a categoria.");return}
+  if(FS.tipo==="tr"&&!(ED&&(ED.origem==="banco"||ED.origem==="csv"))&&!FS.para){toast("Escolha para onde foi o dinheiro.");return}
   var auto=ED&&(ED.origem==="banco"||ED.origem==="csv");
   var t=ED?Object.assign({},ED):{id:uid(),origem:"manual",ext:"",criado:new Date().toISOString(),contaNome:""};
-  if(!auto){t.valor=FS.tipo==="in"?v:-v;t.data=$("fData").value;t.conta=FS.conta}
+  if(!auto){t.valor=FS.tipo==="in"?v:-v;t.data=$("fData").value;t.conta=FS.conta;
+    if(FS.tipo==="tr"){t.para=FS.para;t.contaNome="para:"+FS.para}else{delete t.para;if(/^para:/.test(t.contaNome||""))t.contaNome=""}}
   t.cat=FS.tipo==="tr"?"tr":FS.cat;t.desc=$("fDesc").value.trim();t.nota=$("fNota").value.trim();t.nchk=FS.conta==="cheque"?$("fChk").value.trim():"";
   if(ED){var i=TX.findIndex(function(x){return x.id===ED.id});TX[i]=t;fQueue({action:"fin_upd",tx:t})}
   else{TX.push(t);fQueue({action:"fin_add",txs:[t]})}
@@ -678,6 +717,7 @@ function aplicarRegras(fila){var n=0;TX.forEach(function(t){if(cat(t.cat)!==NC)r
 
 // ---------- Contas ----------
 function renderCon(){
+  renderCash();
   var list=TX.filter(function(t){return inPer(t)});
   $("contas").innerHTML=CONTAS.map(function(c){var l=list.filter(function(t){return t.conta===c[0]});if(!l.length)return"";var T=totais(l);
     return'<div class="acc"><div><b>'+c[1]+"</b><small>"+l.length+" lançamento(s)</small></div><div style=\"text-align:right\"><span class=\"ok\">+"+money(T.e)+'</span><small>−'+money(T.s)+"</small></div></div>"}).join("")||'<div class="empty">Nenhum lançamento em '+esc(perLbl())+".</div>";
@@ -841,7 +881,7 @@ function fSync(){
 
 fillSel();render();
 // Se o site tiver uma versão nova, abre ela (o iPhone guarda a página antiga por um tempo).
-var VERSAO="8";
+var VERSAO="9";
 try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
   if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 var rsz;window.addEventListener("resize",function(){clearTimeout(rsz);rsz=setTimeout(function(){if(UI.tab==="res")bars()},150)});
