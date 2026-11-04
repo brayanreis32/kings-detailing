@@ -38,7 +38,13 @@ a{color:var(--gold)}
 .pane{display:none}.pane.on{display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;min-width:0;color:var(--ink);font:inherit;text-align:left;cursor:pointer;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch}
+.kpi:active{border-color:var(--gold)}
+.kpi em{display:block}
+.bank{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:12px;color:var(--ink);font:inherit;text-align:left}
+.bank small{display:block;color:var(--mut);font-size:12px}
+.bank b{font:700 22px "Barlow Condensed",Impact,sans-serif;white-space:nowrap}
+.bank .old{color:var(--warn)}
 .kpi small{display:block;color:var(--mut);font-size:13px}
 .kpi b{display:block;font:700 26px/1.1 "Barlow Condensed",Impact,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi em{font-style:normal;font-size:12px;color:var(--mut)}
@@ -147,10 +153,11 @@ ol.steps{padding-left:20px;font-size:14px;color:var(--ag);margin:8px 0}ol.steps 
 <!-- RESUMO -->
 <div class="pane on" id="p-res">
   <div class="kpis">
-    <div class="kpi"><small>Entrou</small><b id="kIn"></b><em id="kInD"></em></div>
-    <div class="kpi"><small>Saiu</small><b id="kOut"></b><em id="kOutD"></em></div>
-    <div class="kpi"><small>Sobrou</small><b id="kBal"></b><em id="kBalD"></em></div>
+    <button class="kpi" data-k="in"><small>Entrou ›</small><b id="kIn"></b><em id="kInD"></em></button>
+    <button class="kpi" data-k="out"><small>Saiu ›</small><b id="kOut"></b><em id="kOutD"></em></button>
+    <button class="kpi" data-k=""><small>Sobrou ›</small><b id="kBal"></b><em id="kBalD"></em></button>
   </div>
+  <button class="bank hide" id="bankRes"></button>
   <div class="alert hide" id="ncAlert"><span id="ncTxt"></span><button class="sm go" id="ncGo">Classificar</button></div>
 
   <div class="card">
@@ -380,10 +387,19 @@ function renderRes(){
   ["segOut","segIn"].forEach(function(id,i){var v=i?UI.gIn:UI.gOut;document.querySelectorAll("#"+id+" button").forEach(function(b){b.classList.toggle("on",b.dataset.v===v)})});
   donut("dnOut",grupos(list,"out",UI.gOut),"Saiu",UI.gOut,"out");
   donut("dnIn",grupos(list,"in",UI.gIn),"Entrou",UI.gIn,"in");
-  bars();
+  bars();renderBankRes();
   var gs=list.filter(function(t){return tipo(t)==="out"&&efeito(t)>0}).sort(function(a,b){return efeito(b)-efeito(a)}).slice(0,5);
   $("top5").innerHTML=gs.length?gs.map(function(t){var c=cat(t.cat);return'<div class="acc"><div><b>'+esc(t.desc||c.nome)+'</b><small>'+br(t.data)+" · "+esc(c.nome)+" · "+esc(contaNome(t.conta))+'</small></div><b>'+money(efeito(t))+"</b></div>"}).join(""):'<div class="empty">Nenhum gasto neste período.</div>';
 }
+// Tocar em Entrou / Saiu / Sobrou abre a lista desses lançamentos no período.
+document.querySelectorAll(".kpi[data-k]").forEach(function(b){b.onclick=function(){F={busca:"",tipo:b.dataset.k,cat:"",conta:""};UI.tab="lan";render();window.scrollTo(0,0)}});
+$("bankRes").onclick=function(){UI.tab="con";render();window.scrollTo(0,0)};
+// Saldo disponível = o que o banco informa; se não vier, saldo menos as compras pendentes.
+function dispConta(a){return a.disp!=null?a.disp:a.pend?a.saldo+a.pend:a.saldo}
+function quandoBanco(a){return a.data?new Date(a.data*1000).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}):""}
+function renderBankRes(){var cs=BANCO.on?(BANCO.contas||[]):[],el=$("bankRes");el.classList.toggle("hide",!cs.length);if(!cs.length)return;
+  var tot=cs.reduce(function(t,a){return t+dispConta(a)},0),dt=Math.min.apply(null,cs.map(function(a){return a.data||Infinity})),velho=dt!==Infinity&&Date.now()-dt*1000>36*36e5;
+  el.innerHTML='<span><small>No banco agora (disponível)</small><span class="'+(velho?"old":"note")+'" style="font-size:12px">'+(dt!==Infinity?"Atualizado pelo banco em "+quandoBanco({data:dt}):"")+(velho?" · atrasado":"")+'</span></span><b>'+money(tot)+"</b>"}
 $("ncGo").onclick=function(){F.tipo="nc";F.cat="";F.conta="";F.busca="";UI.tab="lan";render()};
 
 // Agrupa por categoria ou forma de pagamento. Mostra até 7 fatias + "Outros".
@@ -542,7 +558,7 @@ function renderCon(){
   $("bkStatus").innerHTML=!gOn()?'<span class="bad">Ligue o Google em Ajustes primeiro.</span>':on?'<span class="ok">● Conectado.</span> '+(BANCO.pull?"Última busca: "+new Date(BANCO.pull).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"})+".":"")+(BANCO.erro?'<br><span class="bad">Aviso do banco: '+esc(BANCO.erro)+"</span>":""):"Não conectado.";
   $("bkContas").innerHTML=(BANCO.contas||[]).map(function(a){
     // Saldo disponível = o que o banco informa; se não vier, saldo menos as compras pendentes.
-    var disp=a.disp!=null?a.disp:a.pend?a.saldo+a.pend:null,quando=a.data?new Date(a.data*1000).toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"}):"";
+    var disp=dispConta(a),quando=quandoBanco(a);
     return'<div class="acc"><div><b>'+esc(a.nome)+"</b><small>"+esc(a.org||"")+(quando?" · atualizado pelo banco em "+quando:"")+"</small>"+
       (a.pend?'<small>Pendentes: '+money(a.pend)+"</small>":"")+'</div><div style="text-align:right">'+
       (disp!=null&&Math.abs(disp-a.saldo)>0.004?'<b>'+money(disp)+'</b><small>disponível</small><small>saldo '+money(a.saldo)+"</small>":"<b>"+money(a.saldo)+"</b>")+"</div></div>"}).join("")+
