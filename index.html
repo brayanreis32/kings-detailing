@@ -109,20 +109,43 @@ select:disabled{opacity:.5}
   .ag{grid-template-columns:64px minmax(0,1fr)}
   .ag-val{grid-column:2;text-align:left}
 }
+.navg{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#5f6775;padding:16px 10px 6px}
+.navg:first-child{padding-top:4px}
+.nav .m,.nav .mb{display:none}
+.maismenu{display:none}
+@media (max-width:900px){
+  .navg,.nav .dk,.nav .d{display:none!important}
+  .nav .m{display:inline}
+  .nav .mb{display:flex}
+  .maismenu.on{display:flex;flex-direction:column;position:fixed;right:8px;bottom:calc(70px + env(safe-area-inset-bottom,0px));z-index:12;background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:6px;box-shadow:0 10px 30px #0009;min-width:240px}
+  .maismenu a{color:var(--ink);text-decoration:none;padding:12px;border-radius:8px;font-size:15px}
+  .maismenu a:hover{background:var(--card2)}
+}
 </style>
 </head>
 <body>
 <div class="app">
 <aside class="side">
-  <div class="brand"><img src="icon-192.png" alt=""><div><b>Kings of Detailing</b><small>Orçamento e agenda</small></div></div>
-  <nav class="nav">
-    <button id="bNovo" class="on"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>Orçamento</span></button>
-    <button id="bAg"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span>Agenda</span></button>
-    <button id="bSet"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span>Preços</span></button>
-    <a href="financeiro.html"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg><span>Financeiro</span></a>
+  <div class="brand"><img src="icon-192.png" alt=""><div><b>Kings of Detailing</b><small>Sistema de gestão</small></div></div>
+  <nav class="nav tabs" id="tabs">
+    <div class="navg">Agendamentos</div>
+    <button class="on" id="bNovo"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="d">Novo orçamento</span><span class="m">Orçamento</span></button>
+    <button id="bAg"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="d">Agenda</span><span class="m">Agenda</span></button>
+    <button class="dk" id="bSet"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="d">Preços</span><span class="m">Preços</span></button>
+    <div class="navg">Financeiro</div>
+    <a href="financeiro.html#res"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="d">Resumo</span><span class="m">Financeiro</span></a>
+    <a href="financeiro.html#lan"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span class="d">Lançamentos</span><span class="m">Lançamentos</span></a>
+    <a class="dk" href="financeiro.html#con"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18"/></svg><span class="d">Contas</span><span class="m">Contas</span></a>
+    <a class="dk" href="financeiro.html#aju"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span class="d">Ajustes</span><span class="m">Ajustes</span></a>
+    <button class="mb" id="bMais" aria-label="Mais opções"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg><span class="d">Mais</span><span class="m">Mais</span></button>
   </nav>
   <div class="side-foot">Kings of Detailing</div>
 </aside>
+<div class="maismenu" id="maisMenu">
+  <a href="index.html#precos">Preços e agendamento pelos clientes</a>
+  <a href="financeiro.html#con">Contas, cash e banco</a>
+  <a href="financeiro.html#aju">Ajustes do financeiro</a>
+</div>
 <main class="main">
 <header class="topbar">
   <div class="mbrand"><img src="icon-192.png" alt=""><div><b>Kings of Detailing</b><small id="pageTm">Novo orçamento</small></div></div>
@@ -476,10 +499,18 @@ $("bkRest").onclick=function(){var b=$("bkBox");
     save("kf_appts",appts);save("kf_cfg_v3",cfg);b.value="";b.classList.add("hide");b.dataset.mode="";$("bAg").onclick();$("bkNote").textContent="Backup restaurado."}
   catch(e){$("bkNote").textContent="Backup inválido. Cole o texto completo que foi copiado."}};
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
-show(1);
+// Menu "Mais" no celular
+$("bMais").onclick=function(e){e.stopPropagation();$("maisMenu").classList.toggle("on")};
+document.addEventListener("click",function(){$("maisMenu").classList.remove("on")});
+// Abre a parte pedida no endereço (#agenda, #precos) — usado pelo menu vindo do Financeiro.
+function rota(){var h=location.hash.slice(1);if(!h)return;
+  if(h==="agenda")$("bAg").onclick();else if(h==="precos")$("bSet").onclick();else show(st.step||1);
+  history.replaceState(null,"",location.pathname+location.search)}
+window.addEventListener("hashchange",rota);
+show(1);rota();
 gSync();
 // Se o site tiver uma versão nova, abre ela (o celular guarda a página antiga por um tempo).
-var VERSAO="4";
+var VERSAO="5";
 try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
   if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 </script>
