@@ -75,9 +75,10 @@ indicado como **Concluído** na Agenda, conta 1 indicação; a cada 4 (dá para 
 o cliente ganha 1 limpeza grátis. Quando ele usar, toque em **Usou 1 limpeza grátis**.
 Cada pessoa indicada conta uma vez só, mesmo que agende de novo.
 
-## Aviso no celular
+## Aviso no celular (Telegram)
 
-Em **Preços → Aviso no celular**, gere um código e assine esse código no app grátis
-**ntfy** (iPhone ou Android). A cada agendamento feito pelo site chega uma
-notificação com o nome do cliente, carros, dia, horário, valor e quem indicou.
-O botão **Testar notificação** manda um aviso de teste.
+Em **Preços → Aviso no celular**, crie um robô no Telegram com o **@BotFather**
+(/newbot), toque em **Start** no seu robô e cole o token no sistema. A cada
+agendamento feito pelo site chega uma mensagem no Telegram com o nome do
+cliente, carros, dia, horário, valor e quem indicou. O token fica guardado só no
+script do Google.

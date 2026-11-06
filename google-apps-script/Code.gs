@@ -47,6 +47,8 @@ function doPost(e) {
       case 'del': remover(p.id); break;
       case 'cfg': PropertiesService.getScriptProperties().setProperty('cfg', JSON.stringify(p.cfg)); break;
       case 'ntfy_test': return saida(avisarCelular('Teste da Kings of Detailing', 'Se você está vendo isso, as notificações estão funcionando! 🎉', true));
+      case 'tg_link': return saida(telegramConectar(p.token));
+      case 'tg_status': return saida(telegramStatus());
       // Página de agendamento dos clientes
       case 'pub_info': return saida({ ok: true, cfg: cfgPublica(), busy: ocupadosPublicos(), indicador: indicador(p.r).nome });
       case 'pub_dias': return saida({ ok: true, longe: diasLonge(p.end) });
@@ -588,6 +590,8 @@ function indicador(r) {
 // ---------- Notificação no celular (app ntfy) ----------
 // O código em Preços (cfg.ntfy) é o "canal": quem assina esse canal no app ntfy recebe o aviso.
 function avisarCelular(titulo, texto, teste) {
+  // Telegram primeiro; o ntfy fica só para quem já usava.
+  if (PropertiesService.getScriptProperties().getProperty('tg_chat')) return telegramEnviar('🚗 ' + titulo + '\n' + texto);
   const c = lerCfg() || {};
   if (!c.ntfy) return { ok: false, erro: 'sem_ntfy' };
   try {
@@ -606,6 +610,57 @@ function avisarCelular(titulo, texto, teste) {
     if (code === 429) return { ok: false, erro: c.ntfyToken ? 'ntfy_limite_conta' : 'ntfy_limite' };
     if (code === 401 || code === 403) return { ok: false, erro: 'ntfy_token' };
     return { ok: false, erro: 'ntfy ' + code };
+  } catch (err) {
+    return { ok: false, erro: String(err) };
+  }
+}
+
+
+// ---------- Aviso no celular pelo Telegram ----------
+// O token do robô e o chat ficam só aqui no script (nunca vão para o navegador).
+function telegramApi(token, metodo, dados) {
+  const r = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/' + metodo, {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true, payload: JSON.stringify(dados || {})
+  });
+  let d = {};
+  try { d = JSON.parse(r.getContentText()); } catch (err) { d = { ok: false }; }
+  d.http = r.getResponseCode();
+  return d;
+}
+
+// Confere o token, acha a conversa (a pessoa precisa ter tocado em Iniciar no robô) e manda o teste.
+function telegramConectar(token) {
+  token = String(token || '').trim();
+  if (!/^\d+:[\w-]{20,}$/.test(token)) return { ok: false, erro: 'tg_token' };
+  const eu = telegramApi(token, 'getMe');
+  if (!eu.ok) return { ok: false, erro: 'tg_token' };
+  const up = telegramApi(token, 'getUpdates', { limit: 100 });
+  let chat = null;
+  (up.result || []).forEach(function (u) {
+    const m = u.message || u.edited_message;
+    if (m && m.chat && m.chat.type === 'private') chat = m.chat;
+  });
+  if (!chat) return { ok: false, erro: 'tg_sem_msg', bot: eu.result.username };
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('tg_token', token);
+  props.setProperty('tg_chat', String(chat.id));
+  props.setProperty('tg_bot', eu.result.username);
+  const t = telegramEnviar('✅ Pronto! A partir de agora você recebe aqui um aviso a cada agendamento feito pelo site da ' + ((lerCfg() || {}).names || NOME_AGENDA) + '.');
+  return t.ok ? { ok: true, bot: eu.result.username, nome: chat.first_name || '' } : t;
+}
+
+function telegramStatus() {
+  const props = PropertiesService.getScriptProperties();
+  return { ok: true, on: !!props.getProperty('tg_chat'), bot: props.getProperty('tg_bot') || '' };
+}
+
+function telegramEnviar(texto) {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('tg_token'), chat = props.getProperty('tg_chat');
+  if (!token || !chat) return { ok: false, erro: 'tg_off' };
+  try {
+    const d = telegramApi(token, 'sendMessage', { chat_id: chat, text: texto, disable_web_page_preview: true });
+    return d.ok ? { ok: true } : { ok: false, erro: 'tg ' + (d.description || d.http) };
   } catch (err) {
     return { ok: false, erro: String(err) };
   }
