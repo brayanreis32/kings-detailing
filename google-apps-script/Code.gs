@@ -46,6 +46,7 @@ function doPost(e) {
       case 'status': mudarStatus(p.id, p.status); break;
       case 'del': remover(p.id); break;
       case 'cfg': PropertiesService.getScriptProperties().setProperty('cfg', JSON.stringify(p.cfg)); break;
+      case 'ntfy_test': return saida(avisarCelular('Teste da Kings of Detailing', 'Se você está vendo isso, as notificações estão funcionando! 🎉', true));
       // Página de agendamento dos clientes
       case 'pub_info': return saida({ ok: true, cfg: cfgPublica(), busy: ocupadosPublicos(), indicador: indicador(p.r).nome });
       case 'pub_dias': return saida({ ok: true, longe: diasLonge(p.end) });
@@ -549,6 +550,8 @@ function reservar(b) {
       'Novo pedido de agendamento (pendente):\n\n' + descricao(a) + '\nEndereço: ' + end + '\nData: ' + b.data + ' às ' + b.hora +
       '\n\nAbra a Agenda do sistema para confirmar ou recusar.');
   } catch (err) { /* sem e-mail, o pedido continua salvo na agenda */ }
+  avisarCelular('Novo agendamento: ' + nome, a.carro + ' · ' + a.serv.replace(' (pelo site)', '') + '\n' + b.data.slice(5).replace('-', '/') + ' às ' + b.hora + ' · $' + valor.toFixed(2) +
+    (a.ref ? '\nIndicação de ' + indicador(a.ref).nome : ''), false);
   return { ok: true, valor: valor, dep: a.dep };
 }
 
@@ -579,4 +582,24 @@ function indicador(r) {
     }
   }
   return { nome: '', tel: '' };
+}
+
+
+// ---------- Notificação no celular (app ntfy) ----------
+// O código em Preços (cfg.ntfy) é o "canal": quem assina esse canal no app ntfy recebe o aviso.
+function avisarCelular(titulo, texto, teste) {
+  const c = lerCfg() || {};
+  if (!c.ntfy) return { ok: false, erro: 'sem_ntfy' };
+  try {
+    const r = UrlFetchApp.fetch('https://ntfy.sh/', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      payload: JSON.stringify({
+        topic: c.ntfy, title: titulo, message: texto, tags: ['car'], priority: 4,
+        click: c.site ? c.site + '#agenda' : undefined
+      })
+    });
+    return r.getResponseCode() === 200 ? { ok: true } : { ok: false, erro: 'ntfy ' + r.getResponseCode() };
+  } catch (err) {
+    return { ok: false, erro: String(err) };
+  }
 }

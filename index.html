@@ -258,6 +258,17 @@ select:disabled{opacity:.5}
 <p class="note">O cliente vê só os horários livres e os preços. Nada da sua agenda, dos outros clientes ou do financeiro aparece para ele. Cada pedido entra na Agenda como Pendente e você recebe um e-mail.</p>
 </div>
 <p class="note" id="linkOff">Ligue o Google Agenda abaixo para gerar o link dos clientes.</p>
+<h2 style="margin-top:24px">Aviso no celular quando um cliente agendar</h2>
+<ol class="note" style="padding-left:18px;margin:6px 0">
+<li>Instale o app grátis <b>ntfy</b> no celular (App Store ou Google Play).</li>
+<li>Toque em <b>Gerar código</b> abaixo e depois em <b>Salvar</b>.</li>
+<li>No app ntfy, toque em <b>+</b>, cole o código em <b>Topic</b> e toque em <b>Subscribe</b>. Permita as notificações.</li>
+<li>Toque em <b>Testar notificação</b>.</li>
+</ol>
+<label for="ntfy">Código do aviso (é como uma senha: não compartilhe)</label>
+<div style="display:flex;gap:8px"><input id="ntfy" readonly placeholder="Toque em Gerar código"><button class="btn alt" id="ntfyGen" style="width:auto;margin:0;white-space:nowrap">Gerar código</button><button class="btn alt" id="ntfyCopy" style="width:auto;margin:0;white-space:nowrap">Copiar</button></div>
+<button class="btn alt" id="ntfyTest">Testar notificação</button>
+<p class="note" id="ntfyNote"></p>
 <h2 style="margin-top:24px">Google Agenda</h2>
 <p class="note">Com o link do script e a chave secreta, a agenda e os preços ficam iguais em todos os aparelhos e cada agendamento entra sozinho no Google Agenda. Deixe em branco para usar só neste aparelho.</p>
 <label for="gUrl">Link do script (termina em /exec)</label><input id="gUrl" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -547,7 +558,16 @@ $("bSet").onclick=function(){
   $("setBox").innerHTML=CATS.map(function(c,i){return"<label>"+c+'</label><div class="grid"><input data-p="'+i+'0" inputmode="decimal" value="'+cfg.p[i][0]+'" aria-label="Full Detail '+c+'"><input data-p="'+i+'1" inputmode="decimal" value="'+cfg.p[i][1]+'" aria-label="Interior Detail '+c+'"></div>'}).join("")+'<p class="note">Esquerda: Full Detail · Direita: Interior Detail</p>';
   $("cc").value=cfg.cc;$("cur").value=cfg.cur;$("depPct").value=cfg.dep;$("raio").value=cfg.raio;
   $("gUrl").value=G.url;$("gKey").value=G.key;$("gNote").textContent="";
-  $("whats").value=cfg.whats||"";$("pagto").value=cfg.pagto||"";linkCli();show("sSet")};
+  $("whats").value=cfg.whats||"";$("pagto").value=cfg.pagto||"";$("ntfy").value=cfg.ntfy||"";$("ntfyNote").textContent="";linkCli();show("sSet")};
+$("ntfyGen").onclick=function(){if($("ntfy").value&&!confirm("Gerar um código novo? O celular vai precisar assinar o novo código."))return;
+  var a="abcdefghijkmnpqrstuvwxyz23456789",t="kings-";for(var i=0;i<14;i++)t+=a[Math.floor(Math.random()*a.length)];$("ntfy").value=t;$("ntfyNote").textContent="Código gerado. Toque em Salvar lá embaixo."};
+$("ntfyCopy").onclick=function(){var t=$("ntfy"),b=this;if(!t.value)return;t.select();
+  function ok(){b.textContent="Copiado!";setTimeout(function(){b.textContent="Copiar"},2000)}
+  try{navigator.clipboard.writeText(t.value).then(ok,function(){document.execCommand("copy");ok()})}catch(e){try{document.execCommand("copy");ok()}catch(x){}}};
+$("ntfyTest").onclick=function(){var n=$("ntfyNote");if(!gOn()){n.textContent="Ligue o Google Agenda primeiro.";return}
+  if(!cfg.ntfy||cfg.ntfy!==$("ntfy").value){n.textContent="Toque em Salvar primeiro e depois teste.";return}
+  n.textContent="Enviando…";gSync();setTimeout(function(){gCall({action:"ntfy_test"}).then(function(){n.textContent="Enviado! Olhe o celular."})
+    .catch(function(e){n.textContent=e.message==="acao"?"Atualize o script do Google (nova versão) para usar o aviso.":e.message==="sem_ntfy"?"O código ainda não chegou no script. Espere uns segundos e teste de novo.":"Não consegui enviar: "+e.message})},1500)};
 // Link da página agendar.html: leva só o código do script, nunca a chave.
 function linkCli(){var m=String(G.url).match(/\/macros\/s\/([^/]+)\/exec/),ok=gOn()&&!!m;
   $("linkBox").classList.toggle("hide",!ok);$("linkOff").classList.toggle("hide",ok);
@@ -560,7 +580,8 @@ $("saveSet").onclick=function(){
   document.querySelectorAll("[data-p]").forEach(function(i){var k=i.dataset.p;cfg.p[+k[0]][+k[1]]=parseFloat(String(i.value).replace(",","."))||0});
   cfg.cc=$("cc").value.replace(/\D/g,"")||"1";cfg.cur=$("cur").value||"$";
   cfg.dep=parseFloat(String($("depPct").value).replace(",","."))||15;
-  cfg.whats=$("whats").value.replace(/\D/g,"");cfg.pagto=$("pagto").value.trim();
+  cfg.whats=$("whats").value.replace(/\D/g,"");cfg.pagto=$("pagto").value.trim();cfg.ntfy=$("ntfy").value.trim();
+  cfg.site=location.href.replace(/[?#].*$/,"").replace(/[^/]*$/,"");
   var ra=parseFloat(String($("raio").value).replace(",","."));cfg.raio=isNaN(ra)||ra<0?5:ra;save("kf_cfg_v3",cfg);
   var url=$("gUrl").value.trim(),key=$("gKey").value.trim(),novo=url!==G.url||key!==G.key;
   G={url:url,key:key};save("kf_google",G);
@@ -592,7 +613,7 @@ window.addEventListener("hashchange",rota);
 show(1);rota();
 gSync();
 // Se o site tiver uma versão nova, abre ela (o celular guarda a página antiga por um tempo).
-var VERSAO="8";
+var VERSAO="9";
 try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
   if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 </script>

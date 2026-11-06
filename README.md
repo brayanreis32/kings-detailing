@@ -74,3 +74,10 @@ esse link fica marcado como indicação dele. Quando você marca o serviço do
 indicado como **Concluído** na Agenda, conta 1 indicação; a cada 4 (dá para mudar)
 o cliente ganha 1 limpeza grátis. Quando ele usar, toque em **Usou 1 limpeza grátis**.
 Cada pessoa indicada conta uma vez só, mesmo que agende de novo.
+
+## Aviso no celular
+
+Em **Preços → Aviso no celular**, gere um código e assine esse código no app grátis
+**ntfy** (iPhone ou Android). A cada agendamento feito pelo site chega uma
+notificação com o nome do cliente, carros, dia, horário, valor e quem indicou.
+O botão **Testar notificação** manda um aviso de teste.
