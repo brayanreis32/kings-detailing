@@ -22,7 +22,7 @@ const HORAS_CADA_CARRO = 2;   // cada carro quando o cliente tem 2 ou mais
 // Minutos que o agendamento ocupa na agenda.
 function duracaoMin(n) { n = Number(n) || 1; return n > 1 ? n * HORAS_CADA_CARRO * 60 : HORAS_UM_CARRO * 60; }
 const DIAS_A_FRENTE = 15;
-const COLS = ['id', 'data', 'hora', 'nome', 'tel', 'end', 'carro', 'serv', 'valor', 'dep', 'n', 'status', 'evento', 'criado', 'lat', 'lng', 'cidade'];
+const COLS = ['id', 'data', 'hora', 'nome', 'tel', 'end', 'carro', 'serv', 'valor', 'dep', 'n', 'status', 'evento', 'criado', 'lat', 'lng', 'cidade', 'ref'];
 
 function doGet() {
   return saida({ ok: true, msg: 'Script da Kings of Detailing funcionando.' });
@@ -47,7 +47,7 @@ function doPost(e) {
       case 'del': remover(p.id); break;
       case 'cfg': PropertiesService.getScriptProperties().setProperty('cfg', JSON.stringify(p.cfg)); break;
       // Página de agendamento dos clientes
-      case 'pub_info': return saida({ ok: true, cfg: cfgPublica(), busy: ocupadosPublicos() });
+      case 'pub_info': return saida({ ok: true, cfg: cfgPublica(), busy: ocupadosPublicos(), indicador: indicador(p.r).nome });
       case 'pub_dias': return saida({ ok: true, longe: diasLonge(p.end) });
       case 'pub_book': return saida(reservar(p.b || {}));
       // Financeiro
@@ -207,7 +207,7 @@ function evento(id) {
 }
 
 function titulo(a) {
-  return (a.status === 'confirmado' ? '✅ ' : '⏳ ') + 'Detail – ' + a.nome + ' (' + a.carro + ')';
+  return (a.status === 'feito' ? '🏁 ' : a.status === 'confirmado' ? '✅ ' : '⏳ ') + 'Detail – ' + a.nome + ' (' + a.carro + ')';
 }
 
 function descricao(a) {
@@ -538,6 +538,9 @@ function reservar(b) {
     valor: valor, dep: Math.round(valor * c.dep) / 100, n: cars.length, status: 'pendente'
   };
   if (g) { a.lat = g.lat; a.lng = g.lng; a.cidade = g.cidade; }
+  // Indicação: guarda o código de quem indicou (não vale indicar a si mesmo).
+  const ind = indicador(b.ref);
+  if (ind.tel && ind.tel !== tel.slice(-10)) a.ref = String(b.ref);
   adicionar(a);
   cache.put('pub_pedidos', String(n + 1), 3600);
 
@@ -547,4 +550,33 @@ function reservar(b) {
       '\n\nAbra a Agenda do sistema para confirmar ou recusar.');
   } catch (err) { /* sem e-mail, o pedido continua salvo na agenda */ }
   return { ok: true, valor: valor, dep: a.dep };
+}
+
+
+// ---------- Indicações ----------
+// Cada cliente tem um código feito a partir do telefone e de um "sal" aleatório
+// guardado nas configurações (cfg.indSalt). O sistema calcula o mesmo código.
+function codigoInd(tel, sal) {
+  const t = String(tel || '').replace(/\D/g, '').slice(-10) + '|' + sal;
+  let h1 = 5381, h2 = 52711;
+  for (let i = 0; i < t.length; i++) {
+    const c = t.charCodeAt(i);
+    h1 = (Math.imul(h1, 33) ^ c) >>> 0;
+    h2 = (Math.imul(h2, 31) + c) >>> 0;
+  }
+  return (h1.toString(36) + h2.toString(36)).slice(0, 10);
+}
+
+// Quem é o dono do código: devolve só o primeiro nome (para mostrar ao indicado) e o telefone (uso interno).
+function indicador(r) {
+  r = String(r || '');
+  const c = lerCfg() || {};
+  if (!r || !c.indSalt) return { nome: '', tel: '' };
+  const pessoas = listar().map(function (a) { return { nome: a.nome, tel: a.tel }; }).concat(c.indExtra || []);
+  for (let i = 0; i < pessoas.length; i++) {
+    if (pessoas[i].tel && codigoInd(pessoas[i].tel, c.indSalt) === r) {
+      return { nome: String(pessoas[i].nome || '').trim().split(/\s+/)[0], tel: String(pessoas[i].tel).replace(/\D/g, '').slice(-10) };
+    }
+  }
+  return { nome: '', tel: '' };
 }

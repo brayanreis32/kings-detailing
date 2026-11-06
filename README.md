@@ -66,3 +66,11 @@ O link fica em **Preços → Agendamento pelos clientes → Copiar** (aparece qu
 o Google Agenda está ligado). Ali também ficam o seu WhatsApp e como o cliente
 paga o sinal. Precisa do `Code.gs` atualizado (nova versão da implantação e
 autorizar o envio de e-mail).
+
+## Indicações (limpeza grátis)
+
+Em **Indicações** cada cliente tem um link próprio de agendamento. Quem agenda por
+esse link fica marcado como indicação dele. Quando você marca o serviço do
+indicado como **Concluído** na Agenda, conta 1 indicação; a cada 4 (dá para mudar)
+o cliente ganha 1 limpeza grátis. Quando ele usar, toque em **Usou 1 limpeza grátis**.
+Cada pessoa indicada conta uma vez só, mesmo que agende de novo.

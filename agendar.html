@@ -71,6 +71,8 @@ select:disabled{opacity:.5}
 .car .x{background:none;border:0;color:var(--mut);font-size:20px;padding:2px 8px;border-radius:6px}
 .car .x:hover{color:var(--out);background:var(--card2)}
 .carsTot{display:flex;justify-content:space-between;padding:10px 12px;background:var(--card2);border-radius:0 0 10px 10px;font-weight:600}
+.refb{border:1px solid #34c38f55;background:#34c38f12;color:var(--ink2);border-radius:10px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+.refb b{color:var(--ink)}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .foot{text-align:center;color:var(--mut);font-size:12px;margin-top:22px}
 .load{color:var(--mut);font-size:14px;padding:12px 0}
@@ -79,6 +81,7 @@ select:disabled{opacity:.5}
 <body>
 <div class="wrap">
 <header class="hero"><img src="icon-192.png" alt="Kings of Detailing"><div><h1 id="nomeEmp">Kings of Detailing</h1><p>Agende seu detail em menos de 2 minutos</p></div></header>
+<div class="refb hide" id="refBox"></div>
 <div class="steps" id="steps"><i class="on">Serviço</i><i>Seus dados</i><i>Dia e horário</i><i>Confirmar</i></div>
 
 <section id="s1" class="show">
@@ -180,6 +183,7 @@ var DIAS=["dom","seg","ter","qua","qui","sex","sáb"],MESES=["jan","fev","mar","
 function $(i){return document.getElementById(i)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 var CFG={p:[[200,120],[300,180],[330,200],[380,230]],cur:"$",dep:15,names:"Kings of Detailing",cc:"1",whats:"",pagto:""},BUSY=[],LONGE=[],st={};
+var REF=(location.search.match(/[?&]r=([a-z0-9]+)/)||[])[1]||"";
 var SID=(location.search.match(/[?&]s=([\w-]+)/)||[])[1],URL_S=SID?"https://script.google.com/macros/s/"+SID+"/exec":"";
 function money(v){return CFG.cur+Number(v).toFixed(2)}
 function call(p){return fetch(URL_S,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(p)}).then(function(r){return r.json()}).then(function(d){if(!d||!d.ok)throw new Error(d&&d.erro||"erro");return d})}
@@ -271,7 +275,7 @@ $("n3").onclick=function(){$("sum").innerHTML=resumo();$("e4").classList.add("hi
 // 4. Enviar
 var ERROS={ocupado:"Esse horário acabou de ser ocupado. Escolha outro.",longe:"Esse dia não está mais disponível na sua região. Escolha outro.",limite:"Muitos pedidos agora. Tente de novo em alguns minutos ou fale no WhatsApp.",dados:"Confira seus dados e tente de novo.",horario:"Escolha o dia e o horário de novo."};
 $("send").onclick=function(){var b=this,e=$("e4");b.disabled=true;b.textContent="Enviando…";e.classList.add("hide");
-  call({action:"pub_book",b:{nome:st.nome,tel:st.tel,end:st.end,cars:st.cars.map(function(c){return{carro:c.nome,cat:c.cat,serv:c.serv}}),data:st.data,hora:st.hora,site:$("site").value}}).then(function(){
+  call({action:"pub_book",b:{nome:st.nome,tel:st.tel,end:st.end,cars:st.cars.map(function(c){return{carro:c.nome,cat:c.cat,serv:c.serv}}),ref:REF,data:st.data,hora:st.hora,site:$("site").value}}).then(function(){
     $("okTxt").textContent="Recebemos seu pedido, "+st.nome.split(" ")[0]+". Vamos confirmar pelo WhatsApp em breve.";
     $("sum2").innerHTML=resumo();
     $("okDep").textContent="Para garantir o horário, envie o sinal de "+money(valor()*CFG.dep/100)+(CFG.pagto?" por "+CFG.pagto:"")+".";
@@ -284,7 +288,8 @@ $("send").onclick=function(){var b=this,e=$("e4");b.disabled=true;b.textContent=
 
 // Início
 if(!SID){show("sErr")}
-else{call({action:"pub_info"}).then(function(d){CFG=d.cfg;BUSY=d.busy||[];if(CFG.names)$("nomeEmp").textContent=CFG.names;carro()})
+else{call({action:"pub_info",r:REF}).then(function(d){CFG=d.cfg;BUSY=d.busy||[];if(CFG.names)$("nomeEmp").textContent=CFG.names;
+    if(d.indicador){$("refBox").innerHTML="Você foi indicado por <b>"+esc(d.indicador)+"</b>. Seja bem-vindo!";$("refBox").classList.remove("hide")}carro()})
   .catch(function(e){if(e.message==="chave"){$("errTxt").textContent="A página de agendamento ainda não está ativada. Fale com a Kings of Detailing pelo WhatsApp.";show("sErr")}})}
 </script>
 </body>

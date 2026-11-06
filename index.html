@@ -74,6 +74,18 @@ select:disabled{opacity:.5}
 .hide{display:none!important}
 #sAg>h2,[data-close]{display:none}
 .note{font-size:13px;color:var(--mut)}
+.ind{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;padding:14px 0;border-bottom:1px solid var(--line);align-items:start}
+.ind:last-child{border-bottom:0}
+.ind b{font-weight:600;font-size:15px}
+.ind small{display:block;color:var(--mut);font-size:13px}
+.ind .bar{height:6px;background:var(--line2);border-radius:3px;margin-top:8px;max-width:260px;overflow:hidden}
+.ind .bar i{display:block;height:100%;background:var(--gold);border-radius:3px}
+.ind .pr{text-align:right;white-space:nowrap}
+.ind .pr b{font-size:20px}
+.ind .acts{grid-column:1/-1}
+.ind.win{background:#34c38f0d;border-radius:8px;padding-left:10px;padding-right:10px}
+.prem{color:var(--in);font-weight:600}
+.badge.done{color:var(--mut);border-color:var(--line2)}
 .ag{display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:16px;align-items:start;padding:14px 0;border-bottom:1px solid var(--line)}
 .ag:last-child{border-bottom:0}
 .ag-when{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center}
@@ -132,6 +144,7 @@ select:disabled{opacity:.5}
     <button class="on" id="bNovo"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="d">Novo orçamento</span><span class="m">Orçamento</span></button>
     <button id="bAg"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="d">Agenda</span><span class="m">Agenda</span></button>
     <button class="dk" id="bSet"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg><span class="d">Preços</span><span class="m">Preços</span></button>
+    <button class="dk" id="bInd"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 11l2 2 4-4"/></svg><span class="d">Indicações</span><span class="m">Indicações</span></button>
     <div class="navg">Financeiro</div>
     <a href="financeiro.html#res"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span class="d">Resumo</span><span class="m">Financeiro</span></a>
     <a href="financeiro.html#lan"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span class="d">Lançamentos</span><span class="m">Lançamentos</span></a>
@@ -143,6 +156,7 @@ select:disabled{opacity:.5}
 </aside>
 <div class="maismenu" id="maisMenu">
   <a href="index.html#precos">Preços e agendamento pelos clientes</a>
+  <a href="index.html#indicacoes">Indicações (limpeza grátis)</a>
   <a href="financeiro.html#con">Contas, cash e banco</a>
   <a href="financeiro.html#aju">Ajustes do financeiro</a>
 </div>
@@ -211,6 +225,20 @@ select:disabled{opacity:.5}
 <button class="btn alt" id="bkRest">Restaurar backup</button>
 <textarea id="bkBox" class="hide" rows="5" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:13px/1.4 monospace"></textarea>
 <button class="btn alt" data-close>Fechar</button></section>
+
+<section id="sInd">
+<p class="note">Cada cliente tem um link próprio. Quem agenda por esse link fica como indicação dele. Quando você marcar o serviço do indicado como <b>Concluído</b> na Agenda, conta 1 indicação.</p>
+<div id="indOff" class="note hide" style="color:var(--warn)">Ligue o Google Agenda em Preços para usar as indicações (o link usa o mesmo script).</div>
+<div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+<div style="flex:1;min-width:200px"><label for="indBusca">Buscar cliente</label><input id="indBusca" type="search" placeholder="Nome ou telefone"></div>
+<div style="width:200px"><label for="indMeta">Indicações para 1 limpeza grátis</label><input id="indMeta" inputmode="numeric"></div>
+</div>
+<div id="indList" style="margin-top:14px"></div>
+<h2 style="margin-top:24px">Gerar link para outra pessoa</h2>
+<p class="note">Para quem ainda não agendou com você, mas quer indicar.</p>
+<div class="grid"><input id="indNome" placeholder="Nome"><input id="indTel" type="tel" inputmode="tel" placeholder="Telefone"></div>
+<button class="btn alt" id="indAdd">Adicionar e gerar link</button>
+</section>
 
 <section id="sSet">
 <h2>Preços por porte</h2>
@@ -318,12 +346,12 @@ function doneTxt(){return(st.cars&&st.cars.length)?"Já adicionados: "+st.cars.m
 function svcName(c){c=c||st;return c.serv==="full"?"Full Detail":"Interior Detail"}
 $("bNovo").onclick=function(){show(st.step||1)};
 function show(n){
-  ["s1","s2","s3","s4","s5","sAg","sSet"].forEach(function(i){$(i).classList.remove("show")});
+  ["s1","s2","s3","s4","s5","sAg","sSet","sInd"].forEach(function(i){$(i).classList.remove("show")});
   $(typeof n==="number"?"s"+n:n).classList.add("show");
   var s=$("steps").children;for(var i=0;i<5;i++)s[i].classList.toggle("on",typeof n==="number"&&i<n);
   $("steps").classList.toggle("off",typeof n!=="number");
-  var t=n==="sAg"?"Agenda":n==="sSet"?"Preços e ajustes":"Novo orçamento";$("pageT").textContent=t;$("pageTm").textContent=t;
-  $("bNovo").classList.toggle("on",typeof n==="number");$("bAg").classList.toggle("on",n==="sAg");$("bSet").classList.toggle("on",n==="sSet");
+  var t=n==="sAg"?"Agenda":n==="sSet"?"Preços e ajustes":n==="sInd"?"Indicações":"Novo orçamento";$("pageT").textContent=t;$("pageTm").textContent=t;
+  $("bNovo").classList.toggle("on",typeof n==="number");$("bAg").classList.toggle("on",n==="sAg");$("bSet").classList.toggle("on",n==="sSet");$("bInd").classList.toggle("on",n==="sInd");
   window.scrollTo(0,0);
 }
 document.querySelectorAll("[data-back]").forEach(function(b){b.onclick=function(){show(+b.dataset.back)}});
@@ -453,11 +481,65 @@ $("bAg").onclick=function(){renderAg();show("sAg");if(!gOn())$("syncNote").textC
 function renderAg(){
   appts.sort(function(a,b){return(a.data+("0"+HS.indexOf(a.hora)).slice(-2))<(b.data+("0"+HS.indexOf(b.hora)).slice(-2))?-1:1});
   $("agList").innerHTML=appts.length?appts.map(function(a,i){var c=a.status==="confirmado";
-    return'<div class="ag"><div class="ag-when"><b>'+br(a.data)+"</b><small>"+esc(a.hora)+'</small></div><div class="ag-main"><b>'+esc(a.nome)+'</b><span class="badge'+(c?" ok":"")+'">'+(c?"Confirmado":"Pendente")+"</span><small>"+esc(a.carro)+" · "+esc(a.serv)+"</small><small>"+esc(a.end||"")+(a.tel?" · "+esc(a.tel):"")+'</small></div><div class="ag-val">'+money(a.valor)+'</div><div class="acts">'+(c?(gOn()?"":'<a class="chip go" target="_blank" rel="noopener" href="'+gcal(a)+'">Google Agenda</a>'):'<button class="chip go" data-c="'+i+'">Confirmar</button>')+'<button class="chip no" data-x="'+i+'">'+(c?"Cancelar":"Cliente não quis")+"</button></div></div>"}).join(""):'<p class="note">Nenhum agendamento ainda.</p>';
+    var f=a.status==="feito",ref=a.ref?donoRef(a.ref):null;
+    return'<div class="ag"><div class="ag-when"><b>'+br(a.data)+"</b><small>"+esc(a.hora)+'</small></div><div class="ag-main"><b>'+esc(a.nome)+'</b><span class="badge'+(f?" done":c?" ok":"")+'">'+(f?"Concluído":c?"Confirmado":"Pendente")+"</span>"+(ref?'<span class="badge ok">Indicação de '+esc(ref.nome.split(" ")[0])+"</span>":"")+"<small>"+esc(a.carro)+" · "+esc(a.serv)+"</small><small>"+esc(a.end||"")+(a.end&&a.tel?" · ":"")+esc(a.tel||"")+'</small></div><div class="ag-val">'+money(a.valor)+'</div>'+
+      (f?"":'<div class="acts">'+(c?'<button class="chip go" data-f="'+i+'">Concluído</button>'+(gOn()?"":'<a class="chip" target="_blank" rel="noopener" href="'+gcal(a)+'">Google Agenda</a>'):'<button class="chip go" data-c="'+i+'">Confirmar</button>')+'<button class="chip no" data-x="'+i+'">'+(c?"Cancelar":"Cliente não quis")+"</button></div>")+"</div>"}).join(""):'<p class="note">Nenhum agendamento ainda.</p>';
   $("agList").querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){var a=appts[+b.dataset.c];a.status="confirmado";save("kf_appts",appts);renderAg();gQueue({action:"status",id:a.id,status:"confirmado"})}});
+  $("agList").querySelectorAll("[data-f]").forEach(function(b){b.onclick=function(){var a=appts[+b.dataset.f];a.status="feito";save("kf_appts",appts);renderAg();gQueue({action:"status",id:a.id,status:"feito"})}});
   $("agList").querySelectorAll("[data-x]").forEach(function(b){var t=b.textContent;b.onclick=function(){
     if(b.dataset.arm){var id=appts[+b.dataset.x].id;appts.splice(+b.dataset.x,1);save("kf_appts",appts);renderAg();gQueue({action:"del",id:id})}
     else{b.dataset.arm="1";b.textContent="Toque de novo: liberar horário";setTimeout(function(){delete b.dataset.arm;b.textContent=t},4000)}}})}
+// ---------- Indicações ----------
+// O código de cada cliente vem do telefone + cfg.indSalt (o script calcula igual).
+function codigoInd(tel,sal){var t=String(tel||"").replace(/\D/g,"").slice(-10)+"|"+sal,h1=5381,h2=52711;
+  for(var i=0;i<t.length;i++){var c=t.charCodeAt(i);h1=(Math.imul(h1,33)^c)>>>0;h2=(Math.imul(h2,31)+c)>>>0}
+  return(h1.toString(36)+h2.toString(36)).slice(0,10)}
+function tel10(t){return String(t||"").replace(/\D/g,"").slice(-10)}
+// Pessoas que podem indicar: todos os clientes da agenda + os adicionados à mão.
+function pessoasInd(){var m={};
+  appts.concat(cfg.indExtra||[]).forEach(function(a){var t=tel10(a.tel);if(t.length===10&&!m[t])m[t]={nome:a.nome,tel:t}});
+  return Object.keys(m).map(function(k){return m[k]})}
+function donoRef(r){if(!cfg.indSalt)return null;var l=pessoasInd();for(var i=0;i<l.length;i++)if(codigoInd(l[i].tel,cfg.indSalt)===r)return l[i];return null}
+function statsInd(){var st={},meta=+cfg.indMeta||4;
+  appts.forEach(function(a){if(!a.ref)return;var s=st[a.ref]=st[a.ref]||{feitos:{},agend:{},nomes:[]},t=tel10(a.tel);
+    if(a.status==="feito"){s.feitos[t]=a.nome;delete s.agend[t]}else if(!s.feitos[t])s.agend[t]=a.nome});
+  Object.keys(st).forEach(function(k){var s=st[k];s.nf=Object.keys(s.feitos).length;s.na=Object.keys(s.agend).length;
+    s.ganhos=Math.floor(s.nf/meta);s.usados=(cfg.indUsados||{})[k]||0;s.disp=Math.max(0,s.ganhos-s.usados)});
+  return st}
+function linkInd(code){var m=String(G.url).match(/\/macros\/s\/([^/]+)\/exec/);
+  return location.href.replace(/[?#].*$/,"").replace(/[^/]*$/,"")+"agendar.html?s="+(m?m[1]:"")+"&r="+code}
+function cfgSalvar(){save("kf_cfg_v3",cfg);if(gOn()){Q.push({action:"cfg",cfg:cfg});save("kf_q",Q);gSync()}}
+$("bInd").onclick=function(){
+  if(!cfg.indSalt){cfg.indSalt=Math.random().toString(36).slice(2,10)+Date.now().toString(36);cfgSalvar()}
+  $("indMeta").value=cfg.indMeta||4;renderInd();show("sInd")};
+$("indMeta").onchange=function(){var v=parseInt(this.value,10);cfg.indMeta=v>0?v:4;this.value=cfg.indMeta;cfgSalvar();renderInd()};
+$("indBusca").oninput=function(){renderInd()};
+$("indAdd").onclick=function(){var n=$("indNome").value.trim(),t=tel10($("indTel").value);
+  if(!n||t.length!==10){$("indNome").focus();return}
+  cfg.indExtra=(cfg.indExtra||[]).filter(function(p){return tel10(p.tel)!==t});cfg.indExtra.push({nome:n,tel:t});cfgSalvar();
+  $("indNome").value="";$("indTel").value="";$("indBusca").value=n;renderInd()};
+function renderInd(){var on=gOn()&&/\/macros\/s\//.test(G.url);$("indOff").classList.toggle("hide",on);
+  var meta=+cfg.indMeta||4,st=statsInd(),q=$("indBusca").value.trim().toLowerCase(),
+    l=pessoasInd().map(function(p){var code=codigoInd(p.tel,cfg.indSalt);return{p:p,code:code,s:st[code]||{nf:0,na:0,ganhos:0,usados:0,disp:0,feitos:{},agend:{}}}})
+    .filter(function(x){return!q||(x.p.nome+" "+x.p.tel).toLowerCase().indexOf(q)>-1})
+    .sort(function(a,b){return b.s.disp-a.s.disp||b.s.nf-a.s.nf||b.s.na-a.s.na||(a.p.nome<b.p.nome?-1:1)});
+  $("indList").innerHTML=l.length?l.map(function(x,i){var s=x.s,falta=meta-(s.nf%meta),pct=Math.round((s.nf%meta)/meta*100),
+      nomes=Object.keys(s.feitos).map(function(k){return esc(s.feitos[k])+" ✓"}).concat(Object.keys(s.agend).map(function(k){return esc(s.agend[k])+" (agendado)"}));
+    return'<div class="ind'+(s.disp?" win":"")+'"><div><b>'+esc(x.p.nome)+"</b><small>"+esc(x.p.tel)+" · "+s.nf+" concluída(s)"+(s.na?" · "+s.na+" agendada(s)":"")+"</small>"+
+      (nomes.length?"<small>Indicou: "+nomes.join(", ")+"</small>":"")+'<div class="bar"><i style="width:'+pct+'%"></i></div><small>'+(s.nf%meta)+"/"+meta+" · faltam "+falta+" para a próxima limpeza grátis</small></div>"+
+      '<div class="pr">'+(s.disp?'<span class="prem">'+s.disp+" limpeza(s) grátis</span>":'<small>'+(s.usados?s.usados+" já usada(s)":"Sem prêmio ainda")+"</small>")+"</div>"+
+      '<div class="acts"><button class="chip" data-lk="'+i+'">Copiar link</button><a class="chip go" target="_blank" rel="noopener" data-wa="'+i+'">Mandar no WhatsApp</a>'+(s.disp?'<button class="chip" data-use="'+i+'">Usou 1 limpeza grátis</button>':"")+"</div></div>"}).join(""):
+    '<p class="note">Nenhum cliente ainda. Os clientes da Agenda aparecem aqui automaticamente.</p>';
+  $("indList").querySelectorAll("[data-lk]").forEach(function(b){b.onclick=function(){var t=linkInd(l[+b.dataset.lk].code);
+    function ok(){b.textContent="Copiado!";setTimeout(function(){b.textContent="Copiar link"},2000)}
+    try{navigator.clipboard.writeText(t).then(ok,function(){prompt("Copie o link:",t)})}catch(e){prompt("Copie o link:",t)}}});
+  $("indList").querySelectorAll("[data-wa]").forEach(function(a){var x=l[+a.dataset.wa],t=tel10(x.p.tel);
+    var msg="Olá, "+x.p.nome.split(" ")[0]+"! Aqui é da *"+cfg.names+"*. 🚗✨\n\nIndique a gente para seus amigos com o seu link abaixo. A cada "+meta+" amigos que fizerem o detail, você ganha *1 limpeza grátis*!\n\n"+linkInd(x.code);
+    a.href="https://wa.me/"+cfg.cc+t+"?text="+encodeURIComponent(msg)});
+  $("indList").querySelectorAll("[data-use]").forEach(function(b){b.onclick=function(){
+    if(!b.dataset.arm){b.dataset.arm="1";b.textContent="Toque de novo para confirmar";setTimeout(function(){delete b.dataset.arm;b.textContent="Usou 1 limpeza grátis"},4000);return}
+    var c=l[+b.dataset.use].code;cfg.indUsados=cfg.indUsados||{};cfg.indUsados[c]=(cfg.indUsados[c]||0)+1;cfgSalvar();renderInd()}})}
+
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 
 // Preços
@@ -504,13 +586,13 @@ $("bMais").onclick=function(e){e.stopPropagation();$("maisMenu").classList.toggl
 document.addEventListener("click",function(){$("maisMenu").classList.remove("on")});
 // Abre a parte pedida no endereço (#agenda, #precos) — usado pelo menu vindo do Financeiro.
 function rota(){var h=location.hash.slice(1);if(!h)return;
-  if(h==="agenda")$("bAg").onclick();else if(h==="precos")$("bSet").onclick();else show(st.step||1);
+  if(h==="agenda")$("bAg").onclick();else if(h==="precos")$("bSet").onclick();else if(h==="indicacoes")$("bInd").onclick();else show(st.step||1);
   history.replaceState(null,"",location.pathname+location.search)}
 window.addEventListener("hashchange",rota);
 show(1);rota();
 gSync();
 // Se o site tiver uma versão nova, abre ela (o celular guarda a página antiga por um tempo).
-var VERSAO="5";
+var VERSAO="6";
 try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
   if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 </script>
