@@ -534,7 +534,7 @@ function renderInd(){var on=gOn()&&/\/macros\/s\//.test(G.url);$("indOff").class
     function ok(){b.textContent="Copiado!";setTimeout(function(){b.textContent="Copiar link"},2000)}
     try{navigator.clipboard.writeText(t).then(ok,function(){prompt("Copie o link:",t)})}catch(e){prompt("Copie o link:",t)}}});
   $("indList").querySelectorAll("[data-wa]").forEach(function(a){var x=l[+a.dataset.wa],t=tel10(x.p.tel);
-    var msg="Olá, "+x.p.nome.split(" ")[0]+"! Aqui é da *"+cfg.names+"*. 🚗✨\n\nIndique a gente para seus amigos com o seu link abaixo. A cada "+meta+" amigos que fizerem o detail, você ganha *1 limpeza grátis*!\n\n"+linkInd(x.code);
+    var msg="Olá, "+x.p.nome.split(" ")[0]+"! Tudo bem? Aqui é o Brayan, da *"+cfg.names+"* 🚗✨\n\nMuito obrigado pela confiança no nosso trabalho! Criamos um programa especial para os nossos clientes:\n\n🎁 *Indique e ganhe*\n✅ Mande o seu link para amigos e familiares\n✅ Eles escolhem o serviço, o dia e o horário direto pelo link\n✅ A cada *"+meta+" indicações* que fizerem o detail, você ganha *1 limpeza grátis*\n\nSeu link exclusivo:\n👉 "+linkInd(x.code)+"\n\nQuanto mais indicar, mais limpezas você ganha! Qualquer dúvida, é só chamar aqui. 🙌";
     a.href="https://wa.me/"+cfg.cc+t+"?text="+encodeURIComponent(msg)});
   $("indList").querySelectorAll("[data-use]").forEach(function(b){b.onclick=function(){
     if(!b.dataset.arm){b.dataset.arm="1";b.textContent="Toque de novo para confirmar";setTimeout(function(){delete b.dataset.arm;b.textContent="Usou 1 limpeza grátis"},4000);return}
@@ -592,7 +592,7 @@ window.addEventListener("hashchange",rota);
 show(1);rota();
 gSync();
 // Se o site tiver uma versão nova, abre ela (o celular guarda a página antiga por um tempo).
-var VERSAO="7";
+var VERSAO="8";
 try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
   if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 </script>
