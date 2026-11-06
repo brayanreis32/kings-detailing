@@ -483,7 +483,7 @@ function renderAg(){
   $("agList").innerHTML=appts.length?appts.map(function(a,i){var c=a.status==="confirmado";
     var f=a.status==="feito",ref=a.ref?donoRef(a.ref):null;
     return'<div class="ag"><div class="ag-when"><b>'+br(a.data)+"</b><small>"+esc(a.hora)+'</small></div><div class="ag-main"><b>'+esc(a.nome)+'</b><span class="badge'+(f?" done":c?" ok":"")+'">'+(f?"Concluído":c?"Confirmado":"Pendente")+"</span>"+(ref?'<span class="badge ok">Indicação de '+esc(ref.nome.split(" ")[0])+"</span>":"")+"<small>"+esc(a.carro)+" · "+esc(a.serv)+"</small><small>"+esc(a.end||"")+(a.end&&a.tel?" · ":"")+esc(a.tel||"")+'</small></div><div class="ag-val">'+money(a.valor)+'</div>'+
-      (f?"":'<div class="acts">'+(c?'<button class="chip go" data-f="'+i+'">Concluído</button>'+(gOn()?"":'<a class="chip" target="_blank" rel="noopener" href="'+gcal(a)+'">Google Agenda</a>'):'<button class="chip go" data-c="'+i+'">Confirmar</button>')+'<button class="chip no" data-x="'+i+'">'+(c?"Cancelar":"Cliente não quis")+"</button></div>")+"</div>"}).join(""):'<p class="note">Nenhum agendamento ainda.</p>';
+      (f?'<div class="acts"><button class="chip no" data-x="'+i+'">Excluir</button></div>':'<div class="acts">'+(c?'<button class="chip go" data-f="'+i+'">Concluído</button>'+(gOn()?"":'<a class="chip" target="_blank" rel="noopener" href="'+gcal(a)+'">Google Agenda</a>'):'<button class="chip go" data-c="'+i+'">Confirmar</button>')+'<button class="chip no" data-x="'+i+'">'+(c?"Cancelar":"Cliente não quis")+"</button></div>")+"</div>"}).join(""):'<p class="note">Nenhum agendamento ainda.</p>';
   $("agList").querySelectorAll("[data-c]").forEach(function(b){b.onclick=function(){var a=appts[+b.dataset.c];a.status="confirmado";save("kf_appts",appts);renderAg();gQueue({action:"status",id:a.id,status:"confirmado"})}});
   $("agList").querySelectorAll("[data-f]").forEach(function(b){b.onclick=function(){var a=appts[+b.dataset.f];a.status="feito";save("kf_appts",appts);renderAg();gQueue({action:"status",id:a.id,status:"feito"})}});
   $("agList").querySelectorAll("[data-x]").forEach(function(b){var t=b.textContent;b.onclick=function(){
@@ -592,7 +592,7 @@ window.addEventListener("hashchange",rota);
 show(1);rota();
 gSync();
 // Se o site tiver uma versão nova, abre ela (o celular guarda a página antiga por um tempo).
-var VERSAO="6";
+var VERSAO="7";
 try{fetch(location.pathname+"?nv="+Date.now(),{cache:"no-store"}).then(function(r){return r.text()}).then(function(t){var m=t.match(/var VERSAO="([^"]+)"/);
   if(m&&m[1]!==VERSAO&&location.search.indexOf("v="+m[1])<0)location.replace(location.pathname+"?v="+m[1])}).catch(function(){})}catch(e){}
 </script>
