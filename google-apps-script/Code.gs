@@ -591,14 +591,21 @@ function avisarCelular(titulo, texto, teste) {
   const c = lerCfg() || {};
   if (!c.ntfy) return { ok: false, erro: 'sem_ntfy' };
   try {
+    // Com o token de uma conta grátis do ntfy, o limite de envios é da conta, e não do
+    // endereço do Google (que é dividido com muitos outros scripts e costuma dar 429).
+    const headers = c.ntfyToken ? { Authorization: 'Bearer ' + c.ntfyToken } : {};
     const r = UrlFetchApp.fetch('https://ntfy.sh/', {
-      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: headers,
       payload: JSON.stringify({
         topic: c.ntfy, title: titulo, message: texto, tags: ['car'], priority: 4,
         click: c.site ? c.site + '#agenda' : undefined
       })
     });
-    return r.getResponseCode() === 200 ? { ok: true } : { ok: false, erro: 'ntfy ' + r.getResponseCode() };
+    const code = r.getResponseCode();
+    if (code === 200) return { ok: true };
+    if (code === 429) return { ok: false, erro: c.ntfyToken ? 'ntfy_limite_conta' : 'ntfy_limite' };
+    if (code === 401 || code === 403) return { ok: false, erro: 'ntfy_token' };
+    return { ok: false, erro: 'ntfy ' + code };
   } catch (err) {
     return { ok: false, erro: String(err) };
   }
